@@ -29,19 +29,21 @@ let input_wav = File::open("data/191111_110130.wav").unwrap();
     };
     let mut mon = Monitor::new(&config, &samples);
     mon.process_all();
-    print!("Elapsed = {:?} Max mag = {}\n",start.elapsed(), mon.max_mag);
+    print!("Max mag = {} {:?} elapsed. \n",mon.max_mag, start.elapsed());
 
     let mut find_sync:FT8FindSync = FT8FindSync::new(&mon.wf);
     let num = find_sync.ft8_find_sync(10);
-    print!("Elapsed = {:?} Candidates = {} \n",start.elapsed(), num);
+    print!("Found {} candidates. {:?} elapsed. \n",num, start.elapsed());
 
     let mut decode = FT8Decode::new(&mon.wf);
-
+    let mut success = 0;
     for c in find_sync.candidates.iter() {
-        if decode.ft8_decode(c, 80) {
+        if decode.ft8_decode(c, 20) {
             let freq_hz = (c.freq_offset as f32 + c.freq_sub as f32 / mon.wf.freq_osr as f32) / config.symbol_period as f32;
             let time_sec = (c.time_offset as f32 + c.time_sub as f32 / mon.wf.time_osr as f32) * config.symbol_period as f32;
-            print!("{}sec {}Hz {:?}\n",time_sec, freq_hz, c);
+            print!("LDPC/CRC OK:{}sec {}Hz {:?}\n",time_sec, freq_hz, c);
+            success += 1;
         }
     }
+    print!("{} candidates sucessfully decoded. {:?} elapsed. \n", success, start.elapsed());
 }

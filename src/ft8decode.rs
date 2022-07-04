@@ -182,7 +182,8 @@ impl<'a> FT8Decode<'a> {
                 log174[bit_idx + 2] = 0.0f32;
             }
             else {
-                self.ft8_extract_symbol(sym_idx * self.wf.block_stride, log174, bit_idx);
+                let idx = (self.wf.get_index(c)  + (sym_idx * self.wf.block_stride) as i32) as usize;
+                self.ft8_extract_symbol(idx, log174, bit_idx);
             }
         }
     }
@@ -197,7 +198,6 @@ impl<'a> FT8Decode<'a> {
         let ldpc_errors = bp_decode(log174, max_iteration,&mut plain174);
 
         if ldpc_errors > 0 {
-            print!("LDPC error\n");
             return false;
         } 
 
@@ -211,10 +211,8 @@ impl<'a> FT8Decode<'a> {
         let crc_calculated = ftx_compute_crc(&a91, 96 - 14);
 
         if crc_extracted != crc_calculated {
-            print!("CRC Error\n");
             return false;
         }
-
         return true;
     }
     
