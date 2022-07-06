@@ -1,20 +1,16 @@
-use crate::constant::{*};
-use crate::crc::{ftx_extract_crc, ftx_compute_crc};
+use crate::constant::*;
+use crate::crc::{ftx_compute_crc, ftx_extract_crc};
+use crate::ldpc::*;
 use crate::monitor::{Candidate, Waterfall};
-use crate::ldpc::{*};
-use crate::unpack::{*};
+use crate::unpack::*;
 
 pub struct FT8FindSync<'a> {
     wf: &'a Waterfall,
-    pub candidates: Vec<Candidate>,
 }
 
 impl<'a> FT8FindSync<'a> {
     pub fn new(wf: &Waterfall) -> FT8FindSync {
-        return FT8FindSync {
-            wf,
-            candidates: Vec::new(),
-        };
+        return FT8FindSync { wf };
     }
 
     fn ft8_sync_score(&self, candidate: &Candidate) -> i32 {
@@ -59,8 +55,14 @@ impl<'a> FT8FindSync<'a> {
         return score;
     }
 
-    pub fn ft8_find_sync(&mut self, min_score: i32) -> usize {
-        for time_sub in 0..self.wf.time_osr {
+    pub fn ft8_find_sync(
+        &mut self,
+        time_sub_from: usize,
+        time_sub_to: usize,
+        min_score: i32,
+        candidates: &mut Vec<Candidate>,
+    ) -> usize {
+        for time_sub in time_sub_from..time_sub_to {
             for freq_sub in 0..self.wf.freq_osr {
                 for time_offset in -12..24 {
                     for freq_offset in 0..self.wf.num_bins - 7 {
@@ -77,13 +79,13 @@ impl<'a> FT8FindSync<'a> {
                             continue;
                         }
                         c.score = score;
-                        self.candidates.push(c);
+                        candidates.push(c);
                     }
                 }
             }
         }
-        self.candidates.sort_by(|a, b| b.score.cmp(&a.score));
-        return self.candidates.len();
+        candidates.sort_by(|a, b| b.score.cmp(&a.score));
+        return candidates.len();
     }
 }
 
@@ -106,9 +108,9 @@ impl Message {
             max_dt: 0.0,
             max_score: 0,
             min_score: 100,
-            text : String::new(),
-            hash : 0
-        }
+            text: String::new(),
+            hash: 0,
+        };
     }
 }
 
@@ -117,7 +119,7 @@ pub struct FT8Decode<'a> {
     pub message: Vec<Message>,
 }
 
-fn max2(a: f32, b:f32) -> f32 {
+fn max2(a: f32, b: f32) -> f32 {
     if a >= b {
         return a;
     } else {
@@ -125,28 +127,28 @@ fn max2(a: f32, b:f32) -> f32 {
     }
 }
 
-fn max4(a: f32, b: f32, c:f32, d: f32) -> f32 {
-    return max2(max2(a,b),max2(c,d));
+fn max4(a: f32, b: f32, c: f32, d: f32) -> f32 {
+    return max2(max2(a, b), max2(c, d));
 }
 
-fn pack_bits(bit_array: &[u8; FTX_LDPC_N], num_bits: usize, packed:&mut [u8; FTX_LDPC_K_BYTES]) {
-    let num_bytes = (num_bits + 7 ) / 8;
+fn pack_bits(bit_array: &[u8; FTX_LDPC_N], num_bits: usize, packed: &mut [u8; FTX_LDPC_K_BYTES]) {
+    let num_bytes = (num_bits + 7) / 8;
     for i in 0..num_bytes {
         packed[i] = 0;
     }
-    
+
     let mut mask: u8 = 0x80;
     let mut byte_idx: usize = 0;
 
     for i in 0..num_bits {
-            if bit_array[i] != 0 {
-                packed[byte_idx] |= mask;
-            }
-            mask >>= 1;
-            if mask == 0 {
-                mask = 0x80u8;
-                byte_idx += 1;
-            }
+        if bit_array[i] != 0 {
+            packed[byte_idx] |= mask;
+        }
+        mask >>= 1;
+        if mask == 0 {
+            mask = 0x80u8;
+            byte_idx += 1;
+        }
     }
 }
 
@@ -178,7 +180,7 @@ impl<'a> FT8Decode<'a> {
     }
 
     fn ft8_extract_symbol(&self, idx: usize, logl: &mut [f32; FTX_LDPC_N], bit_idx: usize) {
-        let mut s2 : [f32; 8] = [0.0; 8];
+        let mut s2: [f32; 8] = [0.0; 8];
 
         for j in 0..8 {
             s2[j] = self.wf.mag[idx + FT8_GRAY_MAP[j]] as f32;
@@ -186,13 +188,11 @@ impl<'a> FT8Decode<'a> {
         logl[bit_idx + 0] = max4(s2[4], s2[5], s2[6], s2[7]) - max4(s2[0], s2[1], s2[2], s2[3]);
         logl[bit_idx + 1] = max4(s2[2], s2[3], s2[6], s2[7]) - max4(s2[0], s2[1], s2[4], s2[5]);
         logl[bit_idx + 2] = max4(s2[1], s2[3], s2[5], s2[7]) - max4(s2[0], s2[2], s2[4], s2[6]);
-
     }
-    
+
     fn ft8_extract_likelihood(&self, c: &Candidate, log174: &mut [f32; FTX_LDPC_N]) {
-        
         for k in 0..FT8_ND {
-            let sym_idx = k + if k < 29 {7} else {14};
+            let sym_idx = k + if k < 29 { 7 } else { 14 };
             let bit_idx = 3 * k;
 
             let block = c.time_offset + sym_idx as i32;
@@ -200,31 +200,30 @@ impl<'a> FT8Decode<'a> {
                 log174[bit_idx + 0] = 0.0f32;
                 log174[bit_idx + 1] = 0.0f32;
                 log174[bit_idx + 2] = 0.0f32;
-            }
-            else {
-                let idx = (self.wf.get_index(c)  + (sym_idx * self.wf.block_stride) as i32) as usize;
+            } else {
+                let idx = (self.wf.get_index(c) + (sym_idx * self.wf.block_stride) as i32) as usize;
                 self.ft8_extract_symbol(idx, log174, bit_idx);
             }
         }
     }
 
     pub fn ft8_decode(&self, c: &Candidate, max_iteration: i32, message: &mut Message) -> bool {
-        let mut log174 : [f32; FTX_LDPC_N] = [0.0f32; FTX_LDPC_N];
+        let mut log174: [f32; FTX_LDPC_N] = [0.0f32; FTX_LDPC_N];
 
         self.ft8_extract_likelihood(c, &mut log174);
         self.ftx_normalize_logl(&mut log174);
 
         let mut plain174 = [0u8; FTX_LDPC_N];
-        let ldpc_errors = bp_decode(log174, max_iteration,&mut plain174);
+        let ldpc_errors = bp_decode(log174, max_iteration, &mut plain174);
 
         if ldpc_errors > 0 {
             return false;
-        } 
+        }
 
-        let mut a91 = [ 0u8; FTX_LDPC_K_BYTES];
-        
+        let mut a91 = [0u8; FTX_LDPC_K_BYTES];
+
         pack_bits(&plain174, FTX_LDPC_K, &mut a91);
-     
+
         let crc_extracted = ftx_extract_crc(&a91);
         a91[9] &= 0xf8;
         a91[10] = 0x00;
@@ -242,5 +241,4 @@ impl<'a> FT8Decode<'a> {
         message.hash = crc_calculated;
         return true;
     }
-    
 }

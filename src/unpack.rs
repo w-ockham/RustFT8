@@ -1,6 +1,5 @@
-
-use crate::constant::{*};
-use crate::text::{*};
+use crate::constant::*;
+use crate::text::*;
 
 const MAX22: u32 = 4194304;
 const NTOKENS: u32 = 2063592;
@@ -8,7 +7,7 @@ const MAXGRID4: u16 = 32400;
 
 // n28 is a 28-bit integer, e.g. n28a or n28b, containing all the
 // call sign bits from a packed message.
-pub fn unpack_callsign(n28: u32, ip: u8, i3:u8, result: &mut String) -> bool {
+pub fn unpack_callsign(n28: u32, ip: u8, i3: u8, result: &mut String) -> bool {
     // Check for special tokens DE, QRZ, CQ, CQ_nnn, CQ_aaaa
     if n28 < NTOKENS {
         if n28 <= 2 {
@@ -21,7 +20,7 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3:u8, result: &mut String) -> bool {
             if n28 == 2 {
                 result.push_str("CQ");
             }
-            return false
+            return false;
         }
         if n28 <= 1002 {
             // CQ_nnn with 3 digits
@@ -63,7 +62,7 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3:u8, result: &mut String) -> bool {
     let mut n = n28 - MAX22;
 
     let mut callsign = String::new();
-    
+
     callsign.push(charn((n % 27) as u8, 4));
     n /= 27;
     callsign.push(charn((n % 27) as u8, 4));
@@ -78,24 +77,30 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3:u8, result: &mut String) -> bool {
 
     // Skip trailing and leading whitespace in case of a short callsign
     result.push_str(callsign.chars().rev().collect::<String>().trim());
-    
-    if result.len() == 0 { return true; }
+
+    if result.len() == 0 {
+        return true;
+    }
 
     // Check if we should append /R or /P suffix
     if ip != 0 {
         if i3 == 1 {
             result.push_str("/R");
-        }
-        else if i3 == 2 {
+        } else if i3 == 2 {
             result.push_str("/P");
         }
     }
 
-    return false
+    return false;
 }
 
-pub fn unpack_type1(a77:&[u8;FTX_LDPC_K_BYTES], i3:u8, call_to:&mut String, call_de:&mut String, extra:&mut String)->i32
-{
+pub fn unpack_type1(
+    a77: &[u8; FTX_LDPC_K_BYTES],
+    i3: u8,
+    call_to: &mut String,
+    call_de: &mut String,
+    extra: &mut String,
+) -> i32 {
     // Extract packed fields
     let mut n28a = (a77[0] as u32) << 21;
     n28a |= (a77[1] as u32) << 13;
@@ -107,18 +112,18 @@ pub fn unpack_type1(a77:&[u8;FTX_LDPC_K_BYTES], i3:u8, call_to:&mut String, call
     n28b |= (a77[5] as u32) << 10;
     n28b |= (a77[6] as u32) << 2;
     n28b |= (a77[7] as u32) >> 6;
-    
+
     let ir = (a77[7] & 0x20) as u16 >> 5;
     let mut igrid4 = ((a77[7] & 0x1F) as u16) << 10;
     igrid4 |= (a77[8] as u16) << 2;
     igrid4 |= (a77[9] as u16) >> 6;
 
     // Unpack both callsigns
-    if unpack_callsign(n28a >> 1, n28a as u8 & 0x01, i3, call_to)  {
+    if unpack_callsign(n28a >> 1, n28a as u8 & 0x01, i3, call_to) {
         return -1;
     }
 
-    if unpack_callsign(n28b >> 1, n28b as u8 & 0x01, i3, call_de)  {
+    if unpack_callsign(n28b >> 1, n28b as u8 & 0x01, i3, call_de) {
         return -2;
     }
 
@@ -128,7 +133,7 @@ pub fn unpack_type1(a77:&[u8;FTX_LDPC_K_BYTES], i3:u8, call_to:&mut String, call
             // In case of ir=1 add an "R" before grid
             extra.push_str("R ");
         }
-        
+
         let mut n = igrid4;
         let mut dst = String::new();
 
@@ -139,23 +144,23 @@ pub fn unpack_type1(a77:&[u8;FTX_LDPC_K_BYTES], i3:u8, call_to:&mut String, call
         dst.push(('A' as u8 + (n % 18) as u8) as char);
         n /= 18;
         dst.push(('A' as u8 + (n % 18) as u8) as char);
-        
+
         extra.push_str(dst.chars().rev().collect::<String>().trim());
-    }
-    else
-    {
+    } else {
         // Extract report
         let irpt = igrid4 - MAXGRID4;
 
         // Check special cases first (irpt > 0 always)
         match irpt {
-        1 => extra.push_str(""),
-        2 => extra.push_str("RRR"),
-        3 => extra.push_str("RR73"),
-        4 => extra.push_str("73"),
-        _ => {
+            1 => extra.push_str(""),
+            2 => extra.push_str("RRR"),
+            3 => extra.push_str("RR73"),
+            4 => extra.push_str("73"),
+            _ => {
                 // Extract signal report as a two digit number with a + or - sign
-                if ir > 0 { extra.push_str("R") }
+                if ir > 0 {
+                    extra.push_str("R")
+                }
                 int_to_dd(extra, irpt as i32 - 35, 2, true);
             }
         }
@@ -163,10 +168,10 @@ pub fn unpack_type1(a77:&[u8;FTX_LDPC_K_BYTES], i3:u8, call_to:&mut String, call
     return 0; // Success
 }
 
-pub fn unpack_text(a71: &[u8; FTX_LDPC_K_BYTES], text: &mut String) -> i32{
+pub fn unpack_text(a71: &[u8; FTX_LDPC_K_BYTES], text: &mut String) -> i32 {
     // TODO: test
     let mut b71 = [0u8; 9];
-    
+
     // Shift 71 bits right by 1 bit, so that it's right-aligned in the byte array
     let mut carry = 0;
     for i in 0..9 {
@@ -175,7 +180,7 @@ pub fn unpack_text(a71: &[u8; FTX_LDPC_K_BYTES], text: &mut String) -> i32{
     }
 
     let mut c14 = String::new();
-    
+
     for _idx in 0..13 {
         // Divide the long integer in b71 by 42
         let mut rem = 0u16;
@@ -191,7 +196,7 @@ pub fn unpack_text(a71: &[u8; FTX_LDPC_K_BYTES], text: &mut String) -> i32{
     return 0; // Success
 }
 
-pub fn unpack_telemetry(a71:&[u8; FTX_LDPC_K_BYTES], telemetry:&mut String) -> i32 {
+pub fn unpack_telemetry(a71: &[u8; FTX_LDPC_K_BYTES], telemetry: &mut String) -> i32 {
     let mut b71 = [0u8; 9];
 
     // Shift bits in a71 right by 1 bit
@@ -205,8 +210,16 @@ pub fn unpack_telemetry(a71:&[u8; FTX_LDPC_K_BYTES], telemetry:&mut String) -> i
     for i in 0..9 {
         let nibble1 = b71[i] >> 4;
         let nibble2 = b71[i] & 0x0F;
-        let c1 = if nibble1 > 9 { (nibble1 - 10 + 'A' as u8) as char } else { (nibble1 + '0' as u8) as char};
-        let c2 = if nibble2 > 9 { (nibble2 - 10 + 'A' as u8) as char } else { (nibble2 + '0' as u8) as char};
+        let c1 = if nibble1 > 9 {
+            (nibble1 - 10 + 'A' as u8) as char
+        } else {
+            (nibble1 + '0' as u8) as char
+        };
+        let c2 = if nibble2 > 9 {
+            (nibble2 - 10 + 'A' as u8) as char
+        } else {
+            (nibble2 + '0' as u8) as char
+        };
         telemetry.push(c1);
         telemetry.push(c2);
     }
@@ -216,8 +229,12 @@ pub fn unpack_telemetry(a71:&[u8; FTX_LDPC_K_BYTES], telemetry:&mut String) -> i
 
 //none standard for wsjt-x 2.0
 //by KD8CEC
-pub fn unpack_nonstandard(a77:&[u8; FTX_LDPC_K_BYTES], call_to: &mut String, call_de: &mut String, extra: &mut String) -> i32 {
-   
+pub fn unpack_nonstandard(
+    a77: &[u8; FTX_LDPC_K_BYTES],
+    call_to: &mut String,
+    call_de: &mut String,
+    extra: &mut String,
+) -> i32 {
     //let mut n12 = (a77[0] << 4) as u32; //11 ~4  : 8
     //n12 |= (a77[1] as u32) >> 4; //3~0 : 12
 
@@ -233,11 +250,11 @@ pub fn unpack_nonstandard(a77:&[u8; FTX_LDPC_K_BYTES], call_to: &mut String, cal
     let iflip = ((a77[8] as u32) >> 1) & 0x01; //76543210
     let mut nrpt = ((a77[8] as u32) & 0x01) << 1;
     nrpt |= (a77[9] as u32) >> 7; //76543210
-    
+
     let icq = ((a77[9] as u32) >> 6) & 0x01;
 
     let mut c11 = String::new();
-    
+
     for _i in (11..0).rev() {
         c11.push(charn((n58 % 38) as u8, 5));
         n58 /= 38;
@@ -251,7 +268,11 @@ pub fn unpack_nonstandard(a77:&[u8; FTX_LDPC_K_BYTES], call_to: &mut String, cal
     // call_3[5] = '>';
     // call_3[6] = '\0';
     let c11r = c11.chars().rev().collect::<String>();
-    let (call_1, call_2)  = if iflip != 0 { (c11r, call_3) } else { (call_3, c11r) };
+    let (call_1, call_2) = if iflip != 0 {
+        (c11r, call_3)
+    } else {
+        (call_3, c11r)
+    };
     //save_hash_call(c11_trimmed);
 
     if icq == 0 {
@@ -262,10 +283,8 @@ pub fn unpack_nonstandard(a77:&[u8; FTX_LDPC_K_BYTES], call_to: &mut String, cal
             extra.push_str("RR73");
         } else if nrpt == 3 {
             extra.push_str("73");
-        } 
-    }
-    else
-    {
+        }
+    } else {
         call_to.push_str("CQ");
     }
 
@@ -274,8 +293,12 @@ pub fn unpack_nonstandard(a77:&[u8; FTX_LDPC_K_BYTES], call_to: &mut String, cal
     return 0;
 }
 
-pub fn unpack77_fields(a77:&[u8; FTX_LDPC_K_BYTES], call_to:&mut String, call_de:&mut String, extra:&mut String) -> i32
-{
+pub fn unpack77_fields(
+    a77: &[u8; FTX_LDPC_K_BYTES],
+    call_to: &mut String,
+    call_de: &mut String,
+    extra: &mut String,
+) -> i32 {
     // Extract i3 (bits 74..76)
     let i3 = (a77[9] >> 3) & 0x07;
 
@@ -286,12 +309,10 @@ pub fn unpack77_fields(a77:&[u8; FTX_LDPC_K_BYTES], call_to:&mut String, call_de
         if n3 == 0 {
             // 0.0  Free text
             return unpack_text(a77, extra);
-        }
-        else if n3 == 5 {
+        } else if n3 == 5 {
             return unpack_telemetry(a77, extra);
         }
-    }
-    else if i3 == 1 || i3 == 2 {
+    } else if i3 == 1 || i3 == 2 {
         // Type 1 (standard message) or Type 2 ("/P" form for EU VHF contest)
         return unpack_type1(a77, i3, call_to, call_de, extra);
     } else if i3 == 4 {
@@ -308,8 +329,10 @@ pub fn unpack77(a77: &[u8; FTX_LDPC_K_BYTES], message: &mut String) -> i32 {
     let mut call_de = String::new();
     let mut extra = String::new();
 
-    let rc = unpack77_fields(a77, &mut call_to, &mut call_de, &mut extra) ;
-    if rc < 0 { return rc; }
+    let rc = unpack77_fields(a77, &mut call_to, &mut call_de, &mut extra);
+    if rc < 0 {
+        return rc;
+    }
 
     // int msg_sz = strlen(call_to) + strlen(call_de) + strlen(extra) + 2;
     if call_to.len() > 0 {

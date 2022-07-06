@@ -3,28 +3,30 @@ use rustfft::num_complex::Complex;
 use std::sync::Arc;
 
 pub struct Config {
-    pub sample_rate: u32,                         /* Wave sample rate */
-    pub symbol_period: f32,                       //< FT4/FT8 symbol period in seconds
+    pub sample_rate: u32,   /* Wave sample rate */
+    pub symbol_period: f32, //< FT4/FT8 symbol period in seconds
     pub slot_time: f32,
     pub time_osr: usize,
     pub freq_osr: usize,
+    pub sync_min_score: i32,
+    pub num_threads: usize,
 }
 #[derive(Debug)]
-pub struct  Candidate {
+pub struct Candidate {
     pub score: i32,
     pub time_offset: i32,
     pub freq_offset: usize,
     pub time_sub: usize,
-    pub freq_sub: usize
+    pub freq_sub: usize,
 }
 
 pub struct Waterfall {
-    max_blocks: usize, //< number of blocks (symbols) allocated in the mag array
+    max_blocks: usize,     //< number of blocks (symbols) allocated in the mag array
     pub num_blocks: usize, //< number of blocks (symbols) stored in the mag array
     pub num_bins: usize,   //< number of FFT bins in terms of 6.25 Hz
-    pub time_osr: usize,     //< number of time subdivisions
-    pub freq_osr: usize,     //< number of frequency subdivisions
-    pub mag: Vec<u8>,      //< FFT magnitudes stored as uint8_t[blocks][time_osr][freq_osr][num_bins]
+    pub time_osr: usize,   //< number of time subdivisions
+    pub freq_osr: usize,   //< number of frequency subdivisions
+    pub mag: Vec<u8>, //< FFT magnitudes stored as uint8_t[blocks][time_osr][freq_osr][num_bins]
     //mag_size: usize,
     pub block_stride: usize, //< Helper value = time_osr * freq_osr * num_bins
 }
@@ -51,9 +53,9 @@ impl Waterfall {
     pub fn get_index(&self, candidate: &Candidate) -> i32 {
         let mut offset = candidate.time_offset;
         offset = (offset * self.time_osr as i32) + candidate.time_sub as i32;
-        offset = (offset * self.freq_osr as i32 ) + candidate.freq_sub as i32;
+        offset = (offset * self.freq_osr as i32) + candidate.freq_sub as i32;
         offset = (offset * self.num_bins as i32) + candidate.freq_offset as i32;
-        return offset;       
+        return offset;
     }
 }
 
@@ -65,8 +67,8 @@ pub struct Monitor<'a> {
     samples: &'a Vec<f32>,                    // Sampling data
     window: Vec<f32>,                         // Window function
     spectrum: Vec<Complex<f32>>,              // FFT bin
-    pub wf: Waterfall,                            //< Waterfall object
-    pub max_mag: f32,                             //< Maximum detected magnitude (debug stats)
+    pub wf: Waterfall,                        //< Waterfall object
+    pub max_mag: f32,                         //< Maximum detected magnitude (debug stats)
 }
 
 fn hann(i: usize, n: usize) -> f32 {
@@ -76,16 +78,15 @@ fn hann(i: usize, n: usize) -> f32 {
 
 impl<'a> Monitor<'a> {
     pub fn new(config: &Config, samples: &'a Vec<f32>) -> Self {
-       
         let block_size = (config.sample_rate as f32 * config.symbol_period) as usize; /* 1920 */
         let subblock_size = block_size / config.time_osr; /* 960 */
         let mut fft = RealFftPlanner::<f32>::new();
-        let nfft = block_size * config.freq_osr ; /* 3840 */
+        let nfft = block_size * config.freq_osr; /* 3840 */
         let fft_forward = fft.plan_fft_forward(nfft);
         let fft_norm = 2.0f32 / nfft as f32;
         let max_blocks = (config.slot_time / config.symbol_period) as usize; /* 93 */
         let num_bins = (config.sample_rate as f32 * config.symbol_period / 2.0) as usize; /* 960 */
-        let wf = Waterfall::new(max_blocks, num_bins,config.time_osr, config.freq_osr);
+        let wf = Waterfall::new(max_blocks, num_bins, config.time_osr, config.freq_osr);
         let mut window = Vec::new();
         let mut spectrum = Vec::new();
 
@@ -169,8 +170,11 @@ impl<'a> Monitor<'a> {
     pub fn process_all(&mut self) {
         for frame in (0..self.samples.len() - self.block_size).step_by(self.block_size) {
             self.process(frame);
-        };
-        print!("{} points FFT invoked {} times.\n",
-            self.nfft, self.wf.num_blocks  * self.wf.time_osr);
+        }
+        print!(
+            "{} points FFT invoked {} times.\n",
+            self.nfft,
+            self.wf.num_blocks * self.wf.time_osr
+        );
     }
 }

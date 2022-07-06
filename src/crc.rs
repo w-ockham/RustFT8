@@ -1,7 +1,6 @@
+use crate::constant::*;
 
-use crate::constant::{*};
-
-const TOPBIT: u16 = 1u16 << (FT8_CRC_WIDTH -1 );
+const TOPBIT: u16 = 1u16 << (FT8_CRC_WIDTH - 1);
 
 pub fn ftx_compute_crc(message: &[u8; FTX_LDPC_K_BYTES], num_bits: usize) -> u16 {
     let mut remainder: u16 = 0;
@@ -19,11 +18,11 @@ pub fn ftx_compute_crc(message: &[u8; FTX_LDPC_K_BYTES], num_bits: usize) -> u16
             remainder = remainder << 1;
         }
     }
-
     return remainder & ((TOPBIT << 1) - 1u16);
 }
 
 pub fn ftx_extract_crc(a91: &[u8; FTX_LDPC_K_BYTES]) -> u16 {
-    let chksum: u16 = (((a91[9] & 0x07u8) as u16) << 11) | (a91[10] as u16) << 3 | (a91[11] as u16) >> 5;
+    let chksum: u16 =
+        (((a91[9] & 0x07u8) as u16) << 11) | (a91[10] as u16) << 3 | (a91[11] as u16) >> 5;
     return chksum;
 }
