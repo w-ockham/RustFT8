@@ -90,7 +90,10 @@ impl<'a> FT8FindSync<'a> {
 #[derive(Debug)]
 pub struct Message {
     pub df: f32,
-    pub dt: f32,
+    pub min_dt: f32,
+    pub max_dt: f32,
+    pub max_score: i32,
+    pub min_score: i32,
     pub text: String,
     pub hash: u16,
 }
@@ -99,7 +102,10 @@ impl Message {
     pub fn new() -> Message {
         return Message {
             df: 0.0,
-            dt: 0.0,
+            min_dt: 15.0,
+            max_dt: 0.0,
+            max_score: 0,
+            min_score: 100,
             text : String::new(),
             hash : 0
         }
@@ -231,7 +237,8 @@ impl<'a> FT8Decode<'a> {
         if unpack77(&a91, &mut message.text) < 0 {
             return false;
         }
-
+        message.max_score = c.score;
+        message.min_score = c.score;
         message.hash = crc_calculated;
         return true;
     }

@@ -35,6 +35,7 @@ fn ldpc_check(codeward: &[u8; FTX_LDPC_N]) -> usize {
     return errors;
 }
 
+/*
 pub fn ldpc_decode(codeward:&[f32;FTX_LDPC_N], max_iters: i32, plain: &mut[u8;FTX_LDPC_N]) -> usize {
     let mut m : [[f32; FTX_LDPC_N]; FTX_LDPC_M] = [[0.0; FTX_LDPC_N]; FTX_LDPC_M];
     let mut e : [[f32; FTX_LDPC_N]; FTX_LDPC_M] = [[0.0; FTX_LDPC_N]; FTX_LDPC_M];
@@ -96,6 +97,7 @@ pub fn ldpc_decode(codeward:&[f32;FTX_LDPC_N], max_iters: i32, plain: &mut[u8;FT
 
     return min_errors;
 }
+*/
 
 pub fn bp_decode(codeward : [f32; FTX_LDPC_N], max_iters: i32, plain: &mut[u8;FTX_LDPC_N]) -> usize {
     let mut tov: [[f32; 3]; FTX_LDPC_N] = [[0.0f32; 3]; FTX_LDPC_N];

@@ -1,6 +1,6 @@
 pub const FT8_ND: usize = 58;
 ///< Data symbols
-pub const FT8_NN: usize = 79;
+//pub const FT8_NN: usize = 79;
 ///< Total channel symbols (FT8_NS + FT8_ND)
 pub const FT8_LENGTH_SYNC: usize = 7;
 ///< Length of each sync group
@@ -16,7 +16,7 @@ pub const FTX_LDPC_K: usize = 91;
 ///< Number of payload bits (including CRC)
 pub const FTX_LDPC_M: usize = 83;
 ///< Number of LDPC checksum bits (FTX_LDPC_N - FTX_LDPC_K)
-pub const FTX_LDPC_N_BYTES: usize = (FTX_LDPC_N + 7) / 8;
+//pub const FTX_LDPC_N_BYTES: usize = (FTX_LDPC_N + 7) / 8;
 ///< Number of whole bytes needed to store 174 bits (full message)
 pub const FTX_LDPC_K_BYTES: usize = (FTX_LDPC_K + 7) / 8;
 ///< Number of whole bytes needed to store 91 bits (payload + CRC only)

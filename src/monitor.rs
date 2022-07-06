@@ -66,8 +66,6 @@ pub struct Monitor<'a> {
     window: Vec<f32>,                         // Window function
     spectrum: Vec<Complex<f32>>,              // FFT bin
     pub wf: Waterfall,                            //< Waterfall object
-    f_min: u32,                               // Minimum Freqency
-    f_max: u32,                               // Maximum Frequency
     pub max_mag: f32,                             //< Maximum detected magnitude (debug stats)
 }
 
@@ -108,8 +106,6 @@ impl<'a> Monitor<'a> {
             window,
             spectrum,
             wf,
-            f_min: 100,
-            f_max: 3000,
             max_mag: -120.0f32,
         }
     }

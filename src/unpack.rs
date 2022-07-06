@@ -31,11 +31,11 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3:u8, result: &mut String) -> bool {
         }
         if n28 <= 532443 {
             // CQ_aaaa with 4 alphanumeric symbols
-            let mut n:u8 = (n28 - 1003) as u8;
+            let mut n = n28 - 1003;
             let mut aaaa = String::new();
 
             for _i in (4..0).rev() {
-                aaaa.push(charn(n % 27, 4));
+                aaaa.push(charn((n % 27) as u8, 4));
                 n /= 27;
             }
 
@@ -60,22 +60,22 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3:u8, result: &mut String) -> bool {
     }
 
     // Standard callsign
-    let mut n = (n28 - MAX22) as u8;
+    let mut n = n28 - MAX22;
 
     let mut callsign = String::new();
     
-    callsign.push(charn(n % 27, 4));
+    callsign.push(charn((n % 27) as u8, 4));
     n /= 27;
-    callsign.push(charn(n % 27, 4));
+    callsign.push(charn((n % 27) as u8, 4));
     n /= 27;
-    callsign.push(charn(n % 27, 4));
+    callsign.push(charn((n % 27) as u8, 4));
     n /= 27;
-    callsign.push(charn(n % 10, 3));
+    callsign.push(charn((n % 10) as u8, 3));
     n /= 10;
-    callsign.push(charn(n % 36, 2));
+    callsign.push(charn((n % 36) as u8, 2));
     n /= 36;
-    callsign.push(charn(n % 37, 1));
-    print!("{}\n",callsign);
+    callsign.push(charn((n % 37) as u8, 1));
+
     // Skip trailing and leading whitespace in case of a short callsign
     result.push_str(callsign.chars().rev().collect::<String>().trim());
     
@@ -116,7 +116,7 @@ pub fn unpack_type1(a77:&[u8;FTX_LDPC_K_BYTES], i3:u8, call_to:&mut String, call
         return -1;
     }
 
-    if unpack_callsign(n28b >> 1, n28b as  u8 & 0x01, i3, call_de)  {
+    if unpack_callsign(n28b >> 1, n28b as u8 & 0x01, i3, call_de)  {
         return -2;
     }
 
@@ -304,10 +304,12 @@ pub fn unpack77_fields(a77:&[u8; FTX_LDPC_K_BYTES], call_to:&mut String, call_de
 
         if n3 == 0 {
             // 0.0  Free text
+            print!("text message not supported.\n");
             return 0;
             //return unpack_text(a77, extra);
         }
         else if n3 == 5 {
+            print!("telemetry not supported.\n");
             return 0;
             //return unpack_telemetry(a77, extra);
         }
@@ -320,6 +322,7 @@ pub fn unpack77_fields(a77:&[u8; FTX_LDPC_K_BYTES], call_to:&mut String, call_de
         //     // One hashed call or "CQ"; one compound or nonstandard call with up
         //     // to 11 characters; and (if not "CQ") an optional RRR, RR73, or 73.
         //return unpack_nonstandard(a77, call_to, call_de, extra);
+        print!("non standard message not supported.\n");
         return 0;
     }
     return -1;
@@ -334,9 +337,17 @@ pub fn unpack77(a77: &[u8; FTX_LDPC_K_BYTES], message: &mut String) -> i32 {
     if rc < 0 { return rc; }
 
     // int msg_sz = strlen(call_to) + strlen(call_de) + strlen(extra) + 2;
-    message.push_str(&call_to);
-    message.push_str(" ");
-    message.push_str(&call_de);
-    message.push_str(&extra);
+    if call_to.len() > 0 {
+        message.push_str(&call_to);
+        message.push_str(" ");
+    }
+    if call_de.len() > 0 {
+        message.push_str(&call_de);
+        message.push_str(" ");
+    }
+    if extra.len() > 0 {
+        message.push_str(&extra);
+    }
+
     return 0;
 }
