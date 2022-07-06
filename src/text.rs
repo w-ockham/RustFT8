@@ -16,7 +16,7 @@ pub fn int_to_dd(mesg: &mut String, argvalue: i32, width: usize, full_sign: bool
     }
 
     while divisor >= 1 {
-        let  digit = value / divisor;
+        let digit = value / divisor;
         mesg.push(('0' as u8 + digit as u8) as char);
         value -= digit * divisor;
         divisor /= 10;
@@ -32,12 +32,12 @@ pub fn charn(c: u8, table_idx: u8) -> char {
     }
 
     if table_idx != 4 {
-        if c < 10 { return (0x30 + c) as char; }
+        if c < 10 { return ('0' as u8 + c) as char; }
         c -= 10;
     }
 
     if table_idx != 3 {
-        if c < 26 { return (0x41 + c) as char }
+        if c < 26 { return ('A' as u8 + c) as char }
         c -= 26;
     }
 
@@ -49,7 +49,7 @@ pub fn charn(c: u8, table_idx: u8) -> char {
                 2 => return '.',
                 3 => return '/',
                 4 => return '?',
-                _ => return '!',
+                _ => return '_',
             }
         }
     }
