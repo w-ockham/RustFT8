@@ -1,9 +1,8 @@
-use std::sync::TryLockResult;
-
 use crate::constant::{*};
 use crate::crc::{ftx_extract_crc, ftx_compute_crc};
 use crate::monitor::{Candidate, Waterfall};
 use crate::ldpc::{*};
+use crate::unpack::{*};
 
 pub struct FT8FindSync<'a> {
     wf: &'a Waterfall,
@@ -88,10 +87,25 @@ impl<'a> FT8FindSync<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Message {
-    text: String,
-    hash: u16,
+    pub df: f32,
+    pub dt: f32,
+    pub text: String,
+    pub hash: u16,
 }
+
+impl Message {
+    pub fn new() -> Message {
+        return Message {
+            df: 0.0,
+            dt: 0.0,
+            text : String::new(),
+            hash : 0
+        }
+    }
+}
+
 pub struct FT8Decode<'a> {
     wf: &'a Waterfall,
     pub message: Vec<Message>,
@@ -188,7 +202,7 @@ impl<'a> FT8Decode<'a> {
         }
     }
 
-    pub fn ft8_decode(&self, c: &Candidate, max_iteration: i32) -> bool {
+    pub fn ft8_decode(&self, c: &Candidate, max_iteration: i32, message: &mut Message) -> bool {
         let mut log174 : [f32; FTX_LDPC_N] = [0.0f32; FTX_LDPC_N];
 
         self.ft8_extract_likelihood(c, &mut log174);
@@ -213,6 +227,12 @@ impl<'a> FT8Decode<'a> {
         if crc_extracted != crc_calculated {
             return false;
         }
+
+        if unpack77(&a91, &mut message.text) < 0 {
+            return false;
+        }
+
+        message.hash = crc_calculated;
         return true;
     }
     

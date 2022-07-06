@@ -1,5 +1,5 @@
 [package]
-name = "ft8fft"
+name = "rustft8"
 version = "0.1.0"
 edition = "2021"
 

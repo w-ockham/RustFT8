@@ -3,15 +3,14 @@ mod monitor;
 mod ft8decode;
 mod ldpc;
 mod crc;
+mod unpack;
+mod text;
 
-use std::sync::Arc;
 use std::fs::File;
 use std::time::Instant;
-use wav_io::header::WavHeader;
+use std::collections::HashMap;
 use monitor::{Monitor, Config};
 use ft8decode::{*};
-use ldpc::{*};
-use crc::{*};
 
 fn main() {
 let input_wav = File::open("data/191111_110130.wav").unwrap();
@@ -35,15 +34,23 @@ let input_wav = File::open("data/191111_110130.wav").unwrap();
     let num = find_sync.ft8_find_sync(10);
     print!("Found {} candidates. {:?} elapsed. \n",num, start.elapsed());
 
-    let mut decode = FT8Decode::new(&mon.wf);
-    let mut success = 0;
+    let decode = FT8Decode::new(&mon.wf);
+    let mut message_hash = HashMap::new();
+
     for c in find_sync.candidates.iter() {
-        if decode.ft8_decode(c, 20) {
+        let mut message = Message::new();
+        
+        if decode.ft8_decode(c, 20, &mut message) {
             let freq_hz = (c.freq_offset as f32 + c.freq_sub as f32 / mon.wf.freq_osr as f32) / config.symbol_period as f32;
             let time_sec = (c.time_offset as f32 + c.time_sub as f32 / mon.wf.time_osr as f32) * config.symbol_period as f32;
             print!("LDPC/CRC OK:{}sec {}Hz {:?}\n",time_sec, freq_hz, c);
-            success += 1;
+            message.df = freq_hz;
+            message.dt = time_sec;
+            message_hash.insert(message.hash, message);
         }
     }
-    print!("{} candidates sucessfully decoded. {:?} elapsed. \n", success, start.elapsed());
+    print!("{} candidates successfully decoded. {:?} elapsed. \n", message_hash.len(), start.elapsed());
+    for v in message_hash.values() {
+        print!("{:?}\n",v);
+    }
 }

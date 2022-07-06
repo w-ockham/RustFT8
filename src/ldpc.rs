@@ -46,7 +46,7 @@ pub fn ldpc_decode(codeward:&[f32;FTX_LDPC_N], max_iters: i32, plain: &mut[u8;FT
         }
     }
 
-    for it in 0..max_iters {
+    for _it in 0..max_iters {
         for j in 0..FTX_LDPC_M {
             for ii1 in 0..FTX_LDPC_NUM_ROWS[j] {
                 let i1 = FTX_LDPC_NM[j][ii1] - 1;
@@ -103,7 +103,7 @@ pub fn bp_decode(codeward : [f32; FTX_LDPC_N], max_iters: i32, plain: &mut[u8;FT
 
     let mut min_errors = FTX_LDPC_M;
 
-    for iter in 0..max_iters {
+    for _it in 0..max_iters {
         let mut plain_sum : u8= 0;
         for n in 0..FTX_LDPC_N {
             plain[n] = if (codeward[n] + tov[n][0] + tov[n][1] + tov[n][2]) > 0.0f32 {
@@ -130,28 +130,28 @@ pub fn bp_decode(codeward : [f32; FTX_LDPC_N], max_iters: i32, plain: &mut[u8;FT
         for m in 0..FTX_LDPC_M {
             for n_idx in 0..FTX_LDPC_NUM_ROWS[m] {
                 let n = FTX_LDPC_NM[m][n_idx] - 1;
-                let mut Tnm = codeward[n];
+                let mut tnm = codeward[n];
                 
                 for m_idx in 0..3 {
                     if (FTX_LDPC_MN[n][m_idx] - 1) != m {
-                        Tnm += tov[n][m_idx];
+                        tnm += tov[n][m_idx];
                     }
                 }
-                toc[m][n_idx] = fast_tanh(-Tnm / 2.0f32);
+                toc[m][n_idx] = fast_tanh(-tnm / 2.0f32);
             }
         }
 
         for n in 0..FTX_LDPC_N {
             for m_idx in 0..3 {
                 let m = FTX_LDPC_MN[n][m_idx] - 1;
-                let mut Tmn = 1.0f32;
+                let mut tmn = 1.0f32;
 
                 for n_idx in 0..FTX_LDPC_NUM_ROWS[m] {
                     if (FTX_LDPC_NM[m][n_idx] - 1) != n {
-                        Tmn *= toc[m][n_idx];
+                        tmn *= toc[m][n_idx];
                     }
                 }
-                tov[n][m_idx] = -2.0f32 * fast_atanh(Tmn);
+                tov[n][m_idx] = -2.0f32 * fast_atanh(tmn);
             }
         }
     }

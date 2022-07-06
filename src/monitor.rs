@@ -1,10 +1,6 @@
-use realfft::num_traits::ToPrimitive;
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
-use rustfft::num_traits::Zero;
 use std::sync::Arc;
-use std::{f32::consts::FRAC_1_PI, fs::File};
-use wav_io::header::{WavHeader, SampleFormat, SAMPLE_RATE_AM_RADIO};
 
 pub struct Config {
     pub sample_rate: u32,                         /* Wave sample rate */
@@ -29,7 +25,7 @@ pub struct Waterfall {
     pub time_osr: usize,     //< number of time subdivisions
     pub freq_osr: usize,     //< number of frequency subdivisions
     pub mag: Vec<u8>,      //< FFT magnitudes stored as uint8_t[blocks][time_osr][freq_osr][num_bins]
-    mag_size: usize,
+    //mag_size: usize,
     pub block_stride: usize, //< Helper value = time_osr * freq_osr * num_bins
 }
 
@@ -37,9 +33,9 @@ impl Waterfall {
     pub fn new(max_blocks: usize, num_bins: usize, time_osr: usize, freq_osr: usize) -> Self {
         let mag_size = max_blocks * time_osr * freq_osr * num_bins;
         let block_stride = time_osr * freq_osr * num_bins;
-        let mut mag = Vec::new();
-        for i in 0..mag_size {
-            mag.push(0u8);
+        let mut mag = Vec::with_capacity(mag_size);
+        for _i in 0..mag_size {
+            mag.push(0);
         }
         Waterfall {
             max_blocks,
@@ -48,7 +44,6 @@ impl Waterfall {
             time_osr,
             freq_osr,
             mag,
-            mag_size,
             block_stride,
         }
     }
@@ -65,10 +60,8 @@ impl Waterfall {
 pub struct Monitor<'a> {
     block_size: usize,                        //< Number of samples per symbol (block)
     subblock_size: usize,                     //< Analysis shift size (number of samples)
-    fft: RealFftPlanner<f32>,                 // FFT planner
     nfft: usize,                              //< FFT size
     fft_forward: Arc<dyn RealToComplex<f32>>, // FFT forward
-    fft_norm: f32,                            //< FFT normalization factor
     samples: &'a Vec<f32>,                    // Sampling data
     window: Vec<f32>,                         // Window function
     spectrum: Vec<Complex<f32>>,              // FFT bin
@@ -109,10 +102,8 @@ impl<'a> Monitor<'a> {
         Monitor {
             block_size,
             subblock_size,
-            fft,
             nfft,
             fft_forward,
-            fft_norm,
             samples,
             window,
             spectrum,
@@ -138,18 +129,12 @@ impl<'a> Monitor<'a> {
                 return;
             }
 
-            //print!("{}-{},", frame_from, frame_to);
-
             // make input and output vectors
             let mut indata = self.samples[frame_from..frame_to].to_vec();
 
             for (i, v) in indata.iter_mut().enumerate() {
                 *v = *v * self.window[i];
             }
-
-            // Are they the length we expect?
-            assert_eq!(indata.len(), self.nfft);
-            assert_eq!(self.spectrum.len(), self.nfft / 2 + 1);
 
             // Forward transform the input data
             self.fft_forward
@@ -189,7 +174,7 @@ impl<'a> Monitor<'a> {
         for frame in (0..self.samples.len() - self.block_size).step_by(self.block_size) {
             self.process(frame);
         };
-        print!("{} points FFT has been invoked {} times.\n",
+        print!("{} points FFT invoked {} times.\n",
             self.nfft, self.wf.num_blocks  * self.wf.time_osr);
     }
 }
