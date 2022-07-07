@@ -10,6 +10,7 @@ pub struct Config {
     pub freq_osr: usize,
     pub sync_min_score: i32,
     pub num_threads: usize,
+    pub ldpc_max_iteration: i32,
 }
 #[derive(Debug)]
 pub struct Candidate {

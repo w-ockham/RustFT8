@@ -1,3 +1,10 @@
+use std::collections::HashMap;
+use std::env;
+use std::fs::File;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Instant;
+
 mod constant;
 mod crc;
 mod ft8decode;
@@ -7,14 +14,8 @@ mod text;
 mod unpack;
 
 use crate::monitor::Candidate;
-use ft8decode::*;
-use monitor::{Config, Monitor};
-use std::collections::HashMap;
-use std::env;
-use std::fs::File;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Instant;
+use crate::ft8decode::*;
+use crate::monitor::{Config, Monitor};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -36,6 +37,7 @@ fn main() {
         freq_osr: 2,
         sync_min_score: 10,
         num_threads: 16,
+        ldpc_max_iteration: 20,
     };
 
     print!(
@@ -59,7 +61,7 @@ fn main() {
     let mut handles = vec![];
     let message_hash: Arc<Mutex<HashMap<u16, Message>>> = Arc::new(Mutex::new(HashMap::new()));
     print!("Spawning {} threads.\n", &config.num_threads);
-    
+
     for time_sub_from in (0..config.time_osr).step_by(time_osr_step) {
         let wf = Arc::clone(&wf);
         let config = Arc::clone(&config);
@@ -85,7 +87,7 @@ fn main() {
 
             for c in candidates.iter() {
                 let mut message = Message::new();
-                if decode.ft8_decode(c, 20, &mut message) {
+                if decode.ft8_decode(c, config.ldpc_max_iteration, &mut message) {
                     let freq_hz = (c.freq_offset as f32 + c.freq_sub as f32 / wf.freq_osr as f32)
                         / config.symbol_period as f32;
                     let time_sec = (c.time_offset as f32 + c.time_sub as f32 / wf.time_osr as f32)
