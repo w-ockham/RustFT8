@@ -74,7 +74,6 @@ impl<'a> FT8FindSync<'a> {
                             freq_sub,
                         };
                         let score = self.ft8_sync_score(&c);
-
                         if score < min_score {
                             continue;
                         }
@@ -196,7 +195,7 @@ impl<'a> FT8Decode<'a> {
             let bit_idx = 3 * k;
 
             let block = c.time_offset + sym_idx as i32;
-            if (block < 0) || (block > self.wf.num_blocks as i32) {
+            if (block < 0) || (block >=self.wf.num_blocks as i32) {
                 log174[bit_idx + 0] = 0.0f32;
                 log174[bit_idx + 1] = 0.0f32;
                 log174[bit_idx + 2] = 0.0f32;
@@ -230,10 +229,12 @@ impl<'a> FT8Decode<'a> {
         let crc_calculated = ftx_compute_crc(&a91, 96 - 14);
 
         if crc_extracted != crc_calculated {
+            /*print!("CRC error! {:?}\n",c);*/
             return false;
         }
 
         if unpack77(&a91, &mut message.text) < 0 {
+            //print!("Message format error!\n");
             return false;
         }
         message.max_score = c.score;

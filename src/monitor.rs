@@ -98,7 +98,10 @@ impl<'a> Monitor<'a> {
         for _i in 0..(nfft / 2 + 1) {
             spectrum.push(Complex::new(0.0f32, 0.0f32))
         }
-
+        print!(
+            "block size ={}, subblock_size = {}, num of fft = {}, max_block = {}, num of bin = {}\n",
+            block_size, subblock_size, nfft, max_blocks, num_bins
+        );
         Monitor {
             block_size,
             subblock_size,
@@ -121,7 +124,12 @@ impl<'a> Monitor<'a> {
 
         for time_sub in 0..self.wf.time_osr {
             let frame_from = frame + time_sub as usize * self.subblock_size;
-            let frame_to = frame_from + self.nfft;
+            let frame_to = frame_from
+                + if self.wf.freq_osr > 2 {
+                    self.nfft / 2
+                } else {
+                    self.nfft
+                };
 
             if frame_to > self.samples.len() {
                 return;
@@ -129,7 +137,11 @@ impl<'a> Monitor<'a> {
 
             // make input and output vectors
             let mut indata = self.samples[frame_from..frame_to].to_vec();
-
+            if self.wf.freq_osr > 2 {
+                for _ in 0..self.nfft / 2 {
+                    indata.push(0.0f32);
+                }
+            }
             for (i, v) in indata.iter_mut().enumerate() {
                 *v = *v * self.window[i];
             }

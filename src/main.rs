@@ -4,16 +4,21 @@ use std::fs::File;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
+use wav_io::*;
+use wav_io::header::*;
 
 mod constant;
 mod crc;
+mod ft8encode;
 mod ft8decode;
 mod ldpc;
 mod monitor;
 mod text;
+mod pack;
 mod unpack;
 
 use crate::monitor::Candidate;
+use crate::ft8encode::*;
 use crate::ft8decode::*;
 use crate::monitor::{Config, Monitor};
 
@@ -24,13 +29,9 @@ fn main() {
         print!("Usage: rustft8 <wavfile>\n");
         return;
     }
-
-    let input_wav = File::open(&args[1]).unwrap();
-    let (header, samples) = wav_io::read_from_file(input_wav).unwrap();
-    println!("{:?} {}", header, header.sample_rate);
-
+    
     let config = Config {
-        sample_rate: header.sample_rate,
+        sample_rate: 12000,
         symbol_period: 0.16f32,
         slot_time: 15.0f32,
         time_osr: 64,
@@ -39,29 +40,48 @@ fn main() {
         num_threads: 16,
         ldpc_max_iteration: 20,
     };
+    
+    let input_wav = File::open(&args[1]).unwrap();
+    let (mut header, mut samples) = read_from_file(input_wav).unwrap();
+
+    if header.channels >= 2 {
+        samples = utils::stereo_to_mono(samples);
+        header.channels = 1;
+    }
+    
+    if header.sample_rate != config.sample_rate {
+        samples = resample::linear(samples, 2, header.sample_rate, config.sample_rate);
+        header.sample_rate = config.sample_rate;
+    } 
+   
+    //samples.resize_with((config.slot_time  as u32 * config.sample_rate ) as usize,||{0.0});
+    
+    let mut file_out = File::create("./resampled.wav").unwrap();
+    writer::to_file(&mut file_out,&WavData::new(header, samples.clone())).unwrap();
 
     print!(
-        "Time oversampling rate = {}.\nFrequency oversampling rate = {}.\n",
-        config.time_osr, config.freq_osr
+        "Num. of Samples = {}.\nTime oversampling rate = {}.\nFrequency oversampling rate = {}.\n",
+        samples.len(), config.time_osr, config.freq_osr
     );
 
     let mut mon = Monitor::new(&config, &samples);
     let start = Instant::now();
-
+   
     mon.process_all();
     print!(
-        "Max mag = {} ({:?} elapsed.)\n",
+        "Num. of block = {}, Max mag = {} ({:?} elapsed.)\n",
+        mon.wf.num_blocks,
         mon.max_mag,
         start.elapsed()
     );
-
+  
     let time_osr_step = config.time_osr / config.num_threads;
     let wf = Arc::new(mon.wf);
     let config = Arc::new(config);
     let mut handles = vec![];
     let message_hash: Arc<Mutex<HashMap<u16, Message>>> = Arc::new(Mutex::new(HashMap::new()));
     print!("Spawning {} threads.\n", &config.num_threads);
-
+    
     for time_sub_from in (0..config.time_osr).step_by(time_osr_step) {
         let wf = Arc::clone(&wf);
         let config = Arc::clone(&config);
@@ -69,21 +89,22 @@ fn main() {
         let handle = thread::spawn(move || {
             let mut find_sync: FT8FindSync = FT8FindSync::new(&wf);
             let mut candidates: Vec<Candidate> = Vec::new();
-            let num = find_sync.ft8_find_sync(
+            let _num = find_sync.ft8_find_sync(
                 time_sub_from,
                 time_sub_from + time_osr_step,
                 config.sync_min_score,
                 &mut candidates,
             );
+            /* 
             print!(
                 "Costas sync founds {} candidates at {} ({:?} elapsed.)\n",
-                num,
+                _num,
                 time_sub_from,
                 start.elapsed()
             );
-
+            */
             let decode = FT8Decode::new(&wf);
-            let mut success = 0;
+            let mut _success = 0;
 
             for c in candidates.iter() {
                 let mut message = Message::new();
@@ -93,7 +114,7 @@ fn main() {
                     let time_sec = (c.time_offset as f32 + c.time_sub as f32 / wf.time_osr as f32)
                         * config.symbol_period as f32;
 
-                    success += 1;
+                    _success += 1;
 
                     message.df = freq_hz;
                     message.min_dt = time_sec;
@@ -124,12 +145,14 @@ fn main() {
                     }
                 }
             }
+            /* 
             print!(
                 "{} candidates successfully decoded at {}. ({:?} elapsed.)\n",
-                success,
+                _success,
                 time_sub_from,
                 start.elapsed()
             );
+            */
         });
         handles.push(handle);
     }
@@ -144,7 +167,8 @@ fn main() {
         messages.len(),
         start.elapsed()
     );
-    for v in messages.values() {
-        print!("{:?} diff DT={}ms\n", v, (v.max_dt - v.min_dt) * 1000.0);
+    for (i, v) in messages.values().enumerate() {
+        //print!("{:?} diff DT={}ms\n", v, (v.max_dt - v.min_dt) * 1000.0);
+        print!("{}: {} {} {} {}\n",i+1 , v.max_score, v.min_dt, v.df, v.text);
     }
 }
