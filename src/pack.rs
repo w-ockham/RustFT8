@@ -1,4 +1,5 @@
 use crate::constant::*;
+use crate::text::*;
 
 const NTOKENS: u32 = 2063592;
 const MAX22: u32 = 4194304;
@@ -133,22 +134,24 @@ pub fn packgrid(grid4 : &String) -> u16
     if grid4 == "73" {
         return MAXGRID4 + 4;
     }
-/* 
-    // Check for stand}Fard 4 letter grid
-    if (in_range(grid4[0], 'A', 'R') && in_range(grid4[1], 'A', 'R') && is_digit(grid4[2]) && is_digit(grid4[3]))
-    {
-        uint16_t igrid4 = (grid4[0] - 'A');
-        igrid4 = igrid4 * 18 + (grid4[1] - 'A');
-        igrid4 = igrid4 * 10 + (grid4[2] - '0');
-        igrid4 = igrid4 * 10 + (grid4[3] - '0');
+
+    let gstr: Vec<char> = grid4.chars().collect();
+
+    if in_range(gstr[0],'A','R') && in_range(gstr[1],'A','R') &&
+       in_range(gstr[2],'0','9') && in_range(gstr[3],'0','9') {
+        let mut igrid4 : u16 = gstr[0] as u16 - 'A' as u16;
+        igrid4 = igrid4 * 18 + (gstr[1] as u16 - 'A' as u16);
+        igrid4 = igrid4 * 10 + (gstr[2] as u16 - '0' as u16);
+        igrid4 = igrid4 * 10 + (gstr[3] as u16 - '0' as u16);
+        
         return igrid4;
     }
-
+/* 
     // Parse report: +dd / -dd / R+dd / R-dd
     // TODO: check the range of dd
-    if (grid4[0] == 'R')
+    if (bytes[0] == 'R')
     {
-        int dd = dd_to_int(grid4 + 1, 3);
+        let dd = dd_to_int(grid4 + 1, 3);
         uint16_t irpt = 35 + dd;
         return (MAXGRID4 + irpt) | 0x8000; // ir = 1
     }
