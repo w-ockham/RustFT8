@@ -157,16 +157,15 @@ pub fn packgrid(grid4: &str) -> u16 {
         let irpt = (35 + dd) as u16;
         return MAXGRID4 + irpt; // ir = 0
     }
-
-    return MAXGRID4 + 1;
+    //return MAXGRID4 + 1;
 }
 
 // Pack Type 1 (Standard 77-bit message) and Type 2 (ditto, with a "/P" call)
 pub fn pack77_1(msg: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
     // Locate the first delimiter
     let token: Vec<&str> = msg.split(' ').collect();
-    let mut n28a = pack28(token[0]);
-    let mut n28b = pack28(token[1]);
+    let n28a = pack28(token[0]);
+    let n28b = pack28(token[1]);
 
     if n28a < 0 || n28b < 0 {
         return -1;

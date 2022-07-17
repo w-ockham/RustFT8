@@ -68,6 +68,11 @@ pub fn charn(c: u8, table_idx: u8) -> char {
     return '_'; // unknown character, should never get here
 }
 
+pub fn in_range(c: char, min: char, max: char) -> bool {
+    return (c as u8 >= min as u8) && (c as u8 <= max as u8);
+}
+
+/* 
 pub fn is_digit(c: char) -> bool {
     let c = c as u8;
     return (c >= b'0') && (c <= b'9');
@@ -81,7 +86,4 @@ pub fn is_letter(c: char) -> bool {
 pub fn is_space(c: char) -> bool {
     return c as u8 == b' ';
 }
-
-pub fn in_range(c: char, min: char, max: char) -> bool {
-    return (c as u8 >= min as u8) && (c as u8 <= max as u8);
-}
+*/

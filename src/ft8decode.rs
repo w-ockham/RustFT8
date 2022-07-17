@@ -195,7 +195,7 @@ impl<'a> FT8Decode<'a> {
             let bit_idx = 3 * k;
 
             let block = c.time_offset + sym_idx as i32;
-            if (block < 0) || (block >=self.wf.num_blocks as i32) {
+            if (block < 0) || (block >= self.wf.num_blocks as i32) {
                 log174[bit_idx + 0] = 0.0f32;
                 log174[bit_idx + 1] = 0.0f32;
                 log174[bit_idx + 2] = 0.0f32;

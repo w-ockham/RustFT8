@@ -27,8 +27,7 @@ pub fn ftx_extract_crc(a91: &[u8; FTX_LDPC_K_BYTES]) -> u16 {
     return chksum;
 }
 
-pub fn ftx_add_crc(payload:&[u8; FTX_LDPC_K_BYTES], a91:&mut [u8; FTX_LDPC_K_BYTES])
-{
+pub fn ftx_add_crc(payload: &[u8; FTX_LDPC_K_BYTES], a91: &mut [u8; FTX_LDPC_K_BYTES]) {
     // Copy 77 bits of payload data
     for i in 0..10 {
         a91[i] = payload[i];
@@ -43,6 +42,6 @@ pub fn ftx_add_crc(payload:&[u8; FTX_LDPC_K_BYTES], a91:&mut [u8; FTX_LDPC_K_BYT
 
     // Store the CRC at the end of 77 bit message
     a91[9] |= (checksum >> 11) as u8;
-    a91[10] = (checksum >> 3) as u8; 
+    a91[10] = (checksum >> 3) as u8;
     a91[11] = (checksum << 5) as u8;
 }
