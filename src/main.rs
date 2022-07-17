@@ -1,8 +1,6 @@
-use core::num;
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
-use std::string::FromUtf8Error;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -31,11 +29,6 @@ use crate::pack::*;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 3 {
-        print!("Usage: rustft8 <wavfile>\n");
-        return;
-    }
-
     let config = Config {
         sample_rate: 12000,
         symbol_period: 0.16f32,
@@ -51,60 +44,83 @@ fn main() {
     let mut header = WavHeader::new_mono();
     let mut packed = [0u8; FTX_LDPC_K_BYTES];
     let mut tones = [0usize; FT8_NN];
-    /*
-    let input_wav = File::open(&args[1]).unwrap();
-    (header, samples) = read_from_file(input_wav).unwrap();
 
-    if header.channels >= 2 {
-        samples = utils::stereo_to_mono(samples);
-        header.channels = 1;
-    }
-
-    if header.sample_rate != config.sample_rate {
-        samples = resample::linear(samples, 2, header.sample_rate, config.sample_rate);
-        header.sample_rate = config.sample_rate;
-    }
-
-    //samples.resize_with((config.slot_time  as u32 * config.sample_rate ) as usize,||{0.0});
-
-    let mut file_out = File::create("./resampled.wav").unwrap();
-    writer::to_file(&mut file_out,&WavData::new(header, samples.clone())).unwrap();
-    */
-    let frequency = args[1].parse::<f32>().unwrap();
-    if pack77(&args[2], &mut packed) < 0 {
-        print!("Cannot parse message! {}\n", &args[1]);
-        return;
-    }
-
-    ft8_encode(&packed, &mut tones);
-    print!("FSK tones: ");
-    for t in tones.iter() {
-        print!("{} ", t);
-    }
-    print!("\n");
-
-    let num_samples =
-        (0.5 + FT8_NN as f32 * config.symbol_period * config.sample_rate as f32) as usize;
-    let num_silence = ((config.slot_time * config.sample_rate as f32) as usize - num_samples) / 2;
-    let num_toal_samples = num_silence + num_samples + num_silence;
+    if args.len() == 2 {
     
-    let mut silence_before = vec![0.0; num_silence];
-    let mut silence_after = vec![0.0; num_silence];
-    samples = vec![0.0; num_samples];
+        // Input from file
+        let input_wav = File::open(&args[1]).unwrap();
+        (header, samples) = read_from_file(input_wav).unwrap();
+        print!("{:?}", header);
 
-    synth_gfsk(
-        &tones,
-        FT8_NN,
-        frequency,
-        FT8_SYMBOL_BT,
-        config.symbol_period,
-        config.sample_rate as f32,
-        &mut samples,
-    );
+        if header.channels >= 2 {
+            samples = utils::stereo_to_mono(samples);
+            header.channels = 1;
+        }
 
-    silence_before.append(&mut samples);
-    silence_before.append(&mut silence_after);
-    let samples = silence_before;
+        if header.sample_rate != config.sample_rate {
+            samples = resample::linear(samples, 2, header.sample_rate, config.sample_rate);
+            header.sample_rate = config.sample_rate;
+        }
+
+        let mut file_out = File::create("./resampled.wav").unwrap();
+        writer::to_file(&mut file_out, &WavData::new(header, samples.clone())).unwrap();
+    
+    } else if args.len() == 3 {
+    
+        // Generate GSK symbol
+        let frequency = args[1].parse::<f32>().unwrap();
+        
+        if pack77(&args[2], &mut packed) < 0 {
+            print!("Cannot parse message! {}\n", &args[1]);
+            return;
+        }
+
+        ft8_encode(&packed, &mut tones);
+        
+        print!("FSK tones: ");
+        for t in tones.iter() {
+            print!("{} ", t);
+        }
+        print!("\n");
+
+        let num_samples =
+            (0.5 + FT8_NN as f32 * config.symbol_period * config.sample_rate as f32) as usize;
+        let num_silence =
+            ((config.slot_time * config.sample_rate as f32) as usize - num_samples) / 2;
+            
+        samples = vec![0.0; num_samples];
+
+        synth_gfsk(
+            &tones,
+            FT8_NN,
+            frequency,
+            FT8_SYMBOL_BT,
+            config.symbol_period,
+            config.sample_rate as f32,
+            &mut samples,
+        );
+        
+        let mut silence_before = vec![0.0; num_silence];
+        let mut silence_after = vec![0.0; num_silence];
+        
+        silence_before.append(&mut samples);
+        silence_before.append(&mut silence_after);
+        samples = silence_before;
+
+        header.sample_rate = config.sample_rate;
+        header.channels = 1;
+        header.bits_per_sample = 16;
+        header.sample_format = SampleFormat::Int;
+    
+        let mut file_out = File::create("./resampled.wav").unwrap();
+        writer::to_file(&mut file_out, &WavData::new(header, samples.clone())).unwrap();
+    
+    } else {
+    
+        print!("Usage: rustft8 <wavfile> | <freq> <message> ");
+        return;
+   
+    }
 
     print!(
         "Num. of Samples = {}.\nTime oversampling rate = {}.\nFrequency oversampling rate = {}.\n",
