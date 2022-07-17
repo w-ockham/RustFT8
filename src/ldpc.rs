@@ -23,6 +23,19 @@ fn fast_atanh(x: f32) -> f32 {
 fn ldpc_check(codeward: &[u8; FTX_LDPC_N]) -> usize {
     let mut errors: usize = 0;
 
+    for m in FTX_LDPC_NM {
+        let mut x: u8 = 0;
+        for i in m {
+            if i != 0 {
+                x ^= codeward[i - 1];
+            }
+        }
+        if x != 0 {
+            errors += 1;
+        }
+    }
+    return errors;
+    /*
     for m in 0..FTX_LDPC_M {
         let mut x: u8 = 0;
         for i in 0..FTX_LDPC_NUM_ROWS[m] {
@@ -33,6 +46,7 @@ fn ldpc_check(codeward: &[u8; FTX_LDPC_N]) -> usize {
         }
     }
     return errors;
+    */
 }
 
 /*

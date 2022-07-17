@@ -1,35 +1,41 @@
+use core::num;
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
+use std::string::FromUtf8Error;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
-use wav_io::*;
 use wav_io::header::*;
+use wav_io::*;
 
 mod constant;
 mod crc;
-mod ft8encode;
 mod ft8decode;
+mod ft8encode;
+mod gfsk;
 mod ldpc;
 mod monitor;
-mod text;
 mod pack;
+mod text;
 mod unpack;
 
-use crate::monitor::Candidate;
-use crate::ft8encode::*;
+use crate::constant::{FT8_NN, FTX_LDPC_K_BYTES};
 use crate::ft8decode::*;
+use crate::ft8encode::*;
+use crate::gfsk::{synth_gfsk, FT8_SYMBOL_BT};
+use crate::monitor::Candidate;
 use crate::monitor::{Config, Monitor};
+use crate::pack::*;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 2 {
+    if args.len() != 3 {
         print!("Usage: rustft8 <wavfile>\n");
         return;
     }
-    
+
     let config = Config {
         sample_rate: 12000,
         symbol_period: 0.16f32,
@@ -40,33 +46,76 @@ fn main() {
         num_threads: 16,
         ldpc_max_iteration: 20,
     };
-    
+
+    let mut samples = Vec::new();
+    let mut header = WavHeader::new_mono();
+    let mut packed = [0u8; FTX_LDPC_K_BYTES];
+    let mut tones = [0usize; FT8_NN];
+    /*
     let input_wav = File::open(&args[1]).unwrap();
-    let (mut header, mut samples) = read_from_file(input_wav).unwrap();
+    (header, samples) = read_from_file(input_wav).unwrap();
 
     if header.channels >= 2 {
         samples = utils::stereo_to_mono(samples);
         header.channels = 1;
     }
-    
+
     if header.sample_rate != config.sample_rate {
         samples = resample::linear(samples, 2, header.sample_rate, config.sample_rate);
         header.sample_rate = config.sample_rate;
-    } 
-   
+    }
+
     //samples.resize_with((config.slot_time  as u32 * config.sample_rate ) as usize,||{0.0});
-    
+
     let mut file_out = File::create("./resampled.wav").unwrap();
     writer::to_file(&mut file_out,&WavData::new(header, samples.clone())).unwrap();
+    */
+    let frequency = args[1].parse::<f32>().unwrap();
+    if pack77(&args[2], &mut packed) < 0 {
+        print!("Cannot parse message! {}\n", &args[1]);
+        return;
+    }
+
+    ft8_encode(&packed, &mut tones);
+    print!("FSK tones: ");
+    for t in tones.iter() {
+        print!("{} ", t);
+    }
+    print!("\n");
+
+    let num_samples =
+        (0.5 + FT8_NN as f32 * config.symbol_period * config.sample_rate as f32) as usize;
+    let num_silence = ((config.slot_time * config.sample_rate as f32) as usize - num_samples) / 2;
+    let num_toal_samples = num_silence + num_samples + num_silence;
+    
+    let mut silence_before = vec![0.0; num_silence];
+    let mut silence_after = vec![0.0; num_silence];
+    samples = vec![0.0; num_samples];
+
+    synth_gfsk(
+        &tones,
+        FT8_NN,
+        frequency,
+        FT8_SYMBOL_BT,
+        config.symbol_period,
+        config.sample_rate as f32,
+        &mut samples,
+    );
+
+    silence_before.append(&mut samples);
+    silence_before.append(&mut silence_after);
+    let samples = silence_before;
 
     print!(
         "Num. of Samples = {}.\nTime oversampling rate = {}.\nFrequency oversampling rate = {}.\n",
-        samples.len(), config.time_osr, config.freq_osr
+        samples.len(),
+        config.time_osr,
+        config.freq_osr
     );
 
     let mut mon = Monitor::new(&config, &samples);
     let start = Instant::now();
-   
+
     mon.process_all();
     print!(
         "Num. of block = {}, Max mag = {} ({:?} elapsed.)\n",
@@ -74,14 +123,14 @@ fn main() {
         mon.max_mag,
         start.elapsed()
     );
-  
+
     let time_osr_step = config.time_osr / config.num_threads;
     let wf = Arc::new(mon.wf);
     let config = Arc::new(config);
     let mut handles = vec![];
     let message_hash: Arc<Mutex<HashMap<u16, Message>>> = Arc::new(Mutex::new(HashMap::new()));
     print!("Spawning {} threads.\n", &config.num_threads);
-    
+
     for time_sub_from in (0..config.time_osr).step_by(time_osr_step) {
         let wf = Arc::clone(&wf);
         let config = Arc::clone(&config);
@@ -95,7 +144,7 @@ fn main() {
                 config.sync_min_score,
                 &mut candidates,
             );
-            /* 
+            /*
             print!(
                 "Costas sync founds {} candidates at {} ({:?} elapsed.)\n",
                 _num,
@@ -145,7 +194,7 @@ fn main() {
                     }
                 }
             }
-            /* 
+            /*
             print!(
                 "{} candidates successfully decoded at {}. ({:?} elapsed.)\n",
                 _success,
@@ -169,6 +218,13 @@ fn main() {
     );
     for (i, v) in messages.values().enumerate() {
         //print!("{:?} diff DT={}ms\n", v, (v.max_dt - v.min_dt) * 1000.0);
-        print!("{}: {} {} {} {}\n",i+1 , v.max_score, v.min_dt, v.df, v.text);
+        print!(
+            "{}: {} {} {} {}\n",
+            i + 1,
+            v.max_score,
+            v.min_dt,
+            v.df,
+            v.text
+        );
     }
 }

@@ -14,17 +14,17 @@ const A4: &str = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 // Pack a special token, a 22-bit hash code, or a valid base call
 // into a 28-bit integer.
-pub fn pack28(callsign: &String) -> i32 {
+pub fn pack28(callsign: &str) -> i32 {
     // Check for special tokens first
-    if callsign.starts_with("DE ") {
+    if callsign.starts_with("DE") {
         return 0;
     }
 
-    if callsign.starts_with("QRZ ") {
+    if callsign.starts_with("QRZ") {
         return 1;
     }
 
-    if callsign.starts_with("CQ ") {
+    if callsign.starts_with("CQ") {
         return 2;
     }
 
@@ -71,15 +71,15 @@ pub fn pack28(callsign: &String) -> i32 {
     }
     */
     // Check for standard callsign
-    let call = callsign.chars().collect::<Vec<char>>();
+    let call: Vec<char> = callsign.chars().collect();
     if let (Some(i0), Some(i1), Some(i2), Some(i3), Some(i4), Some(i5)) = (
         A1.find(call[0]),
         A2.find(call[1]),
         A3.find(call[2]),
         A4.find(call[3]),
         A4.find(call[4]),
-        A4.find(call[5])) 
-        {
+        A4.find(call[5]),
+    ) {
         let mut n28: i32 = i0 as i32;
         n28 = n28 * 36 + i1 as i32;
         n28 = n28 * 10 + i2 as i32;
@@ -88,20 +88,18 @@ pub fn pack28(callsign: &String) -> i32 {
         n28 = n28 * 27 + i5 as i32;
 
         return (NTOKENS + MAX22) as i32 + n28;
-        }
+    }
 
-    return - 1
+    return -1;
 }
-
 
 // Check if a string could be a valid standard callsign or a valid
 // compound callsign.
 // Return base call "bc" and a logical "cok" indicator.
-pub fn chkcall(call: &String) -> bool {
-     
+pub fn chkcall(call: &str) -> bool {
     if call.len() > 11 {
         return false;
-     }
+    }
 
     if call.contains(r#".+-?"#) {
         return false;
@@ -119,9 +117,7 @@ pub fn chkcall(call: &String) -> bool {
     return true;
 }
 
-pub fn packgrid(grid4 : &String) -> u16
-{
-
+pub fn packgrid(grid4: &str) -> u16 {
     // Take care of special cases
     if grid4 == "RRR" {
         return MAXGRID4 + 2;
@@ -130,170 +126,143 @@ pub fn packgrid(grid4 : &String) -> u16
     if grid4 == "RR73" {
         return MAXGRID4 + 3;
     }
-    
+
     if grid4 == "73" {
         return MAXGRID4 + 4;
     }
 
     let gstr: Vec<char> = grid4.chars().collect();
 
-    if in_range(gstr[0],'A','R') && in_range(gstr[1],'A','R') &&
-       in_range(gstr[2],'0','9') && in_range(gstr[3],'0','9') {
-        let mut igrid4 : u16 = gstr[0] as u16 - 'A' as u16;
+    if in_range(gstr[0], 'A', 'R')
+        && in_range(gstr[1], 'A', 'R')
+        && in_range(gstr[2], '0', '9')
+        && in_range(gstr[3], '0', '9')
+    {
+        let mut igrid4: u16 = gstr[0] as u16 - 'A' as u16;
         igrid4 = igrid4 * 18 + (gstr[1] as u16 - 'A' as u16);
         igrid4 = igrid4 * 10 + (gstr[2] as u16 - '0' as u16);
         igrid4 = igrid4 * 10 + (gstr[3] as u16 - '0' as u16);
-        
+
         return igrid4;
     }
-/* 
+
     // Parse report: +dd / -dd / R+dd / R-dd
     // TODO: check the range of dd
-    if (bytes[0] == 'R')
-    {
-        let dd = dd_to_int(grid4 + 1, 3);
-        uint16_t irpt = 35 + dd;
+    if gstr[0] == 'R' {
+        let dd = dd_to_int(&grid4.chars().take(1).collect::<String>(), 3);
+        let irpt = (35 + dd) as u16;
         return (MAXGRID4 + irpt) | 0x8000; // ir = 1
+    } else {
+        let dd = dd_to_int(grid4, 3);
+        let irpt = (35 + dd) as u16;
+        return MAXGRID4 + irpt; // ir = 0
     }
-    else
-    {
-        int dd = dd_to_int(grid4, 3);
-        uint16_t irpt = 35 + dd;
-        return (MAXGRID4 + irpt); // ir = 0
-    }
-*/
+
     return MAXGRID4 + 1;
 }
 
-/*
 // Pack Type 1 (Standard 77-bit message) and Type 2 (ditto, with a "/P" call)
-int pack77_1(const char* msg, uint8_t* b77)
-{
+pub fn pack77_1(msg: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
     // Locate the first delimiter
-    const char* s1 = strchr(msg, ' ');
-    if (s1 == 0)
+    let token: Vec<&str> = msg.split(' ').collect();
+    let mut n28a = pack28(token[0]);
+    let mut n28b = pack28(token[1]);
+
+    if n28a < 0 || n28b < 0 {
         return -1;
-
-    const char* call1 = msg; // 1st call
-    const char* call2 = s1 + 1; // 2nd call
-
-    int32_t n28a = pack28(call1);
-    int32_t n28b = pack28(call2);
-
-    if (n28a < 0 || n28b < 0)
-        return -1;
-
-    uint16_t igrid4;
-
-    // Locate the second delimiter
-    const char* s2 = strchr(s1 + 1, ' ');
-    if (s2 != 0)
-    {
-        igrid4 = packgrid(s2 + 1);
     }
-    else
-    {
+
+    let mut igrid4 = 0u16;
+
+    if token.len() > 2 {
+        igrid4 = packgrid(token[2]);
+    } else {
         // Two callsigns, no grid/report
-        igrid4 = packgrid(0);
+        igrid4 = packgrid(&" ");
     }
 
-    uint8_t i3 = 1; // No suffix or /R
+    let i3 = 1u8; // No suffix or /R
 
     // TODO: check for suffixes
 
     // Shift in ipa and ipb bits into n28a and n28b
-    n28a <<= 1; // ipa = 0
-    n28b <<= 1; // ipb = 0
+    let n28a = (n28a as u32) << 1; // ipa = 0
+    let n28b = (n28b as u32) << 1; // ipb = 0
 
     // Pack into (28 + 1) + (28 + 1) + (1 + 15) + 3 bits
-    b77[0] = (n28a >> 21);
-    b77[1] = (n28a >> 13);
-    b77[2] = (n28a >> 5);
-    b77[3] = (uint8_t)(n28a << 3) | (uint8_t)(n28b >> 26);
-    b77[4] = (n28b >> 18);
-    b77[5] = (n28b >> 10);
-    b77[6] = (n28b >> 2);
-    b77[7] = (uint8_t)(n28b << 6) | (uint8_t)(igrid4 >> 10);
-    b77[8] = (igrid4 >> 2);
-    b77[9] = (uint8_t)(igrid4 << 6) | (uint8_t)(i3 << 3);
+    b77[0] = (n28a >> 21) as u8;
+    b77[1] = (n28a >> 13) as u8;
+    b77[2] = (n28a >> 5) as u8;
+    b77[3] = (n28a << 3) as u8 | (n28b >> 26) as u8;
+    b77[4] = (n28b >> 18) as u8;
+    b77[5] = (n28b >> 10) as u8;
+    b77[6] = (n28b >> 2) as u8;
+    b77[7] = (n28b << 6) as u8 | (igrid4 >> 10) as u8;
+    b77[8] = (igrid4 >> 2) as u8;
+    b77[9] = (igrid4 << 6) as u8 | (i3 << 3) as u8;
 
     return 0;
 }
-*/
-/*
-void packtext77(const char* text, uint8_t* b77)
-{
-    int length = strlen(text);
 
-    // Skip leading and trailing spaces
-    while (*text == ' ' && *text != 0)
-    {
-        ++text;
-        --length;
-    }
-    while (length > 0 && text[length - 1] == ' ')
-    {
-        --length;
-    }
+pub fn packtext77(text: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) {
+    let text = text.trim();
 
     // Clear the first 72 bits representing a long number
-    for (int i = 0; i < 9; ++i)
-    {
+    for i in 0..9 {
         b77[i] = 0;
     }
 
     // Now express the text as base-42 number stored
     // in the first 72 bits of b77
-    for (int j = 0; j < 13; ++j)
-    {
+    for j in 0..13 {
         // Multiply the long integer in b77 by 42
-        uint16_t x = 0;
-        for (int i = 8; i >= 0; --i)
-        {
-            x += b77[i] * (uint16_t)42;
-            b77[i] = (x & 0xFF);
+        let mut x = 0u16;
+        for i in (0..8).rev() {
+            x += b77[i] as u16 * 42u16;
+            b77[i] = (x & 0xFF) as u8;
             x >>= 8;
         }
 
         // Get the index of the current char
-        if (j < length)
-        {
-            int q = char_index(A0, text[j]);
-            x = (q > 0) ? q : 0;
-        }
-        else
-        {
+        if j < text.len() {
+            if let Some(c) = text.chars().nth(j) {
+                if let Some(q) = A0.find(c) {
+                    x = if q > 0 { q as u16 } else { 0 };
+                } else {
+                    x = 0;
+                }
+            } else {
+                x = 0;
+            }
+        } else {
             x = 0;
         }
         // Here we double each added number in order to have the result multiplied
         // by two as well, so that it's a 71 bit number left-aligned in 72 bits (9 bytes)
-        x <<= 1;
+        x = x << 1;
 
         // Now add the number to our long number
-        for (int i = 8; i >= 0; --i)
-        {
-            if (x == 0)
+        for i in (0..8).rev() {
+            if x == 0 {
                 break;
-            x += b77[i];
-            b77[i] = (x & 0xFF);
-            x >>= 8;
+            }
+
+            x += b77[i] as u16;
+            b77[i] = (x & 0xFF) as u8;
+            x = x >> 8;
         }
     }
-
     // Set n3=0 (bits 71..73) and i3=0 (bits 74..76)
-    b77[8] &= 0xFE;
-    b77[9] &= 0x00;
+    b77[8] = b77[8] & 0xFE;
+    b77[9] = b77[9] & 0x00;
 }
-*/
 
-pub fn pack77(msg: &String, c77:& [u8; FTX_LDPC_K_BYTES]) -> i32  {
+pub fn pack77(msg: &String, c77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
     // Check Type 1 (Standard 77-bit message) or Type 2, with optional "/P"
-    return 0;
-    /*
-    if pack77_1(msg, c77) == 0  {
+
+    if pack77_1(msg, c77) == 0 {
         return 0;
     }
-
     // TODO:
     // Check 0.5 (telemetry)
 
@@ -301,7 +270,6 @@ pub fn pack77(msg: &String, c77:& [u8; FTX_LDPC_K_BYTES]) -> i32  {
 
     // Default to free text
     // i3=0 n3=0
-    //packtext77(msg, c77);
-    */
+    packtext77(msg, c77);
     return 0;
 }

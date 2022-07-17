@@ -1,36 +1,7 @@
-/*
-pub fn dd_to_int(str: &String , length: usize) -> i32 {
-    
-    let mut result: i32 = 0;
-    let mut bool negative = false;
-    let mut i: usize = 0;
-    let bstr = str.as_str();
-
-    if str[0] == '-'
-    {
-        negative = true;
-        i = 1; // Consume the - sign
-    }
-    else
-    {
-        negative = false;
-        i = if str[0] == '+' { 1 } else { 0 }; // Consume a + sign if found
-    }
-
-    while (i < length)
-    {
-        if (str[i] == 0)
-            break;
-        if (!is_digit(str[i]))
-            break;
-        result *= 10;
-        result += (str[i] - '0');
-        ++i;
-    }
-
-    return negative ? -result : result;
+pub fn dd_to_int(str: &str, length: usize) -> i32 {
+    return str.parse().unwrap();
 }
-*/
+
 pub fn int_to_dd(mesg: &mut String, argvalue: i32, width: usize, full_sign: bool) {
     let mut value = argvalue;
 
@@ -48,7 +19,7 @@ pub fn int_to_dd(mesg: &mut String, argvalue: i32, width: usize, full_sign: bool
 
     while divisor >= 1 {
         let digit = value / divisor;
-        mesg.push(('0' as u8 + digit as u8) as char);
+        mesg.push((b'0' + digit as u8) as char);
         value -= digit * divisor;
         divisor /= 10;
     }
@@ -65,14 +36,14 @@ pub fn charn(c: u8, table_idx: u8) -> char {
 
     if table_idx != 4 {
         if c < 10 {
-            return ('0' as u8 + c) as char;
+            return (b'0' + c) as char;
         }
         c -= 10;
     }
 
     if table_idx != 3 {
         if c < 26 {
-            return ('A' as u8 + c) as char;
+            return (b'A' + c) as char;
         }
         c -= 26;
     }
@@ -98,16 +69,17 @@ pub fn charn(c: u8, table_idx: u8) -> char {
 }
 
 pub fn is_digit(c: char) -> bool {
-    return (c as u8 >= '0' as u8 ) && (c as u8 <= '9' as u8);
+    let c = c as u8;
+    return (c >= b'0') && (c <= b'9');
 }
 
 pub fn is_letter(c: char) -> bool {
-    return ((c as u8 >= 'A' as u8) && (c as u8<= 'Z' as u8)) || 
-        ((c as u8 >= 'a' as u8) && (c as u8 <= 'z' as u8));
+    let c = c as u8;
+    return ((c >= b'A' as u8) && (c <= b'Z')) || ((c >= b'a' as u8) && (c <= b'z'));
 }
 
-pub fn is_space(c: char ) -> bool {
-    return c as u8 == ' ' as u8;
+pub fn is_space(c: char) -> bool {
+    return c as u8 == b' ';
 }
 
 pub fn in_range(c: char, min: char, max: char) -> bool {
