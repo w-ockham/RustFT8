@@ -33,7 +33,7 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3: u8, result: &mut String) -> bool {
             let mut n = n28 - 1003;
             let mut aaaa = String::new();
 
-            for _i in (4..0).rev() {
+            for _i in (0..4).rev() {
                 aaaa.push(charn((n % 27) as u8, 4));
                 n /= 27;
             }
@@ -78,7 +78,7 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3: u8, result: &mut String) -> bool {
     // Skip trailing and leading whitespace in case of a short callsign
     result.push_str(callsign.chars().rev().collect::<String>().trim());
 
-    if result.len() == 0 {
+    if result.is_empty() {
         return true;
     }
 
@@ -91,7 +91,7 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3: u8, result: &mut String) -> bool {
         }
     }
 
-    return false;
+    false
 }
 
 pub fn unpack_type1(
@@ -137,13 +137,13 @@ pub fn unpack_type1(
         let mut n = igrid4;
         let mut dst = String::new();
 
-        dst.push(('0' as u8 + (n % 10) as u8) as char);
+        dst.push((b'0' + (n % 10) as u8) as char);
         n /= 10;
-        dst.push(('0' as u8 + (n % 10) as u8) as char);
+        dst.push((b'0' + (n % 10) as u8) as char);
         n /= 10;
-        dst.push(('A' as u8 + (n % 18) as u8) as char);
+        dst.push((b'A' + (n % 18) as u8) as char);
         n /= 18;
-        dst.push(('A' as u8 + (n % 18) as u8) as char);
+        dst.push((b'A' + (n % 18) as u8) as char);
 
         extra.push_str(dst.chars().rev().collect::<String>().trim());
     } else {
@@ -159,13 +159,13 @@ pub fn unpack_type1(
             _ => {
                 // Extract signal report as a two digit number with a + or - sign
                 if ir > 0 {
-                    extra.push_str("R")
+                    extra.push('R')
                 }
                 int_to_dd(extra, irpt as i32 - 35, 2, true);
             }
         }
     }
-    return 0; // Success
+    0 // Success
 }
 
 pub fn unpack_text(a71: &[u8; FTX_LDPC_K_BYTES], text: &mut String) -> i32 {
@@ -184,16 +184,16 @@ pub fn unpack_text(a71: &[u8; FTX_LDPC_K_BYTES], text: &mut String) -> i32 {
     for _idx in 0..13 {
         // Divide the long integer in b71 by 42
         let mut rem = 0u16;
-        for i in 0..9 {
-            rem = (rem << 8) | (b71[i] as u16);
-            b71[i] = (rem / 42) as u8;
-            rem = rem % 42;
+        for b in &mut b71 {
+            rem = (rem << 8) | (*b as u16);
+            *b = (rem / 42) as u8;
+            rem %= 42;
         }
         c14.push(charn(rem as u8, 0));
     }
 
     text.push_str(c14.chars().rev().collect::<String>().trim());
-    return 0; // Success
+    0 // Success
 }
 
 pub fn unpack_telemetry(a71: &[u8; FTX_LDPC_K_BYTES], telemetry: &mut String) -> i32 {
@@ -207,24 +207,24 @@ pub fn unpack_telemetry(a71: &[u8; FTX_LDPC_K_BYTES], telemetry: &mut String) ->
     }
 
     // Convert b71 to hexadecimal string
-    for i in 0..9 {
-        let nibble1 = b71[i] >> 4;
-        let nibble2 = b71[i] & 0x0F;
+    for b in &b71 {
+        let nibble1 = *b >> 4;
+        let nibble2 = *b & 0x0F;
         let c1 = if nibble1 > 9 {
-            (nibble1 - 10 + 'A' as u8) as char
+            (nibble1 - 10 + b'A') as char
         } else {
-            (nibble1 + '0' as u8) as char
+            (nibble1 + b'0') as char
         };
         let c2 = if nibble2 > 9 {
-            (nibble2 - 10 + 'A' as u8) as char
+            (nibble2 - 10 + b'A') as char
         } else {
-            (nibble2 + '0' as u8) as char
+            (nibble2 + b'0') as char
         };
         telemetry.push(c1);
         telemetry.push(c2);
     }
 
-    return 0;
+    0
 }
 
 //none standard for wsjt-x 2.0
@@ -256,7 +256,7 @@ pub fn unpack_nonstandard(
 
     let mut c11 = String::new();
 
-    for _i in (11..0).rev() {
+    for _i in (0..11).rev() {
         c11.push(charn((n58 % 38) as u8, 5));
         n58 /= 38;
     }
@@ -291,7 +291,7 @@ pub fn unpack_nonstandard(
 
     call_de.push_str(call_2.as_str());
 
-    return 0;
+    0
 }
 
 pub fn unpack77_fields(
@@ -322,7 +322,7 @@ pub fn unpack77_fields(
         //     // to 11 characters; and (if not "CQ") an optional RRR, RR73, or 73.
         return unpack_nonstandard(a77, call_to, call_de, extra);
     }
-    return -1;
+    -1
 }
 
 pub fn unpack77(a77: &[u8; FTX_LDPC_K_BYTES], message: &mut String) -> i32 {
@@ -336,17 +336,17 @@ pub fn unpack77(a77: &[u8; FTX_LDPC_K_BYTES], message: &mut String) -> i32 {
     }
 
     // int msg_sz = strlen(call_to) + strlen(call_de) + strlen(extra) + 2;
-    if call_to.len() > 0 {
+    if !call_to.is_empty() {
         message.push_str(&call_to);
-        message.push_str(" ");
+        message.push(' ');
     }
-    if call_de.len() > 0 {
+    if !call_de.is_empty() {
         message.push_str(&call_de);
-        message.push_str(" ");
+        message.push(' ');
     }
-    if extra.len() > 0 {
+    if !extra.is_empty() {
         message.push_str(&extra);
     }
 
-    return 0;
+    0
 }

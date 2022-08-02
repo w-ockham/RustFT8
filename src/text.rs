@@ -1,5 +1,5 @@
 pub fn dd_to_int(str: &str, length: usize) -> i32 {
-    return str.parse().unwrap();
+    str.parse().unwrap()
 }
 
 pub fn int_to_dd(mesg: &mut String, argvalue: i32, width: usize, full_sign: bool) {
@@ -59,17 +59,14 @@ pub fn charn(c: u8, table_idx: u8) -> char {
                 _ => return '_',
             }
         }
-    } else if table_idx == 5 {
-        if c == 0 {
-            return '/';
-        }
+    } else if table_idx == 5 && c == 0 {
+        return '/';
     }
-
-    return '_'; // unknown character, should never get here
+    '_' // unknown character, should never get here
 }
 
 pub fn in_range(c: char, min: char, max: char) -> bool {
-    return (c as u8 >= min as u8) && (c as u8 <= max as u8);
+    (c as u8 >= min as u8) && (c as u8 <= max as u8)
 }
 
 /* 

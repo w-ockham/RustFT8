@@ -10,14 +10,14 @@ fn fast_tanh(x: f32) -> f32 {
     let x2 = x * x;
     let a = x * (945.0f32 + x2 * (105.0f32 + x2));
     let b = 945.0f32 + x2 * (420.0f32 + x2 * 15.0f32);
-    return a / b;
+    a / b
 }
 
 fn fast_atanh(x: f32) -> f32 {
     let x2 = x * x;
     let a = x * (945.0f32 + x2 * (-735.0f32 + x2 * 64.0f32));
     let b = 945.0f32 + x2 * (-1050.0f32 + x2 * 225.0f32);
-    return a / b;
+    a / b
 }
 
 fn ldpc_check(codeward: &[u8; FTX_LDPC_N]) -> usize {
@@ -34,19 +34,7 @@ fn ldpc_check(codeward: &[u8; FTX_LDPC_N]) -> usize {
             errors += 1;
         }
     }
-    return errors;
-    /*
-    for m in 0..FTX_LDPC_M {
-        let mut x: u8 = 0;
-        for i in 0..FTX_LDPC_NUM_ROWS[m] {
-            x ^= codeward[FTX_LDPC_NM[m][i] - 1];
-        }
-        if x != 0 {
-            errors += 1;
-        }
-    }
-    return errors;
-    */
+    errors
 }
 
 /*
@@ -176,5 +164,5 @@ pub fn bp_decode(
         }
     }
 
-    return min_errors;
+    min_errors
 }

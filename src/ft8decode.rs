@@ -10,7 +10,7 @@ pub struct FT8FindSync<'a> {
 
 impl<'a> FT8FindSync<'a> {
     pub fn new(wf: &Waterfall) -> FT8FindSync {
-        return FT8FindSync { wf };
+    FT8FindSync { wf }
     }
 
     fn ft8_sync_score(&self, candidate: &Candidate) -> i32 {
@@ -52,7 +52,7 @@ impl<'a> FT8FindSync<'a> {
         if num_average > 0 {
             score /= num_average;
         }
-        return score;
+        score
     }
 
     pub fn ft8_find_sync(
@@ -84,7 +84,7 @@ impl<'a> FT8FindSync<'a> {
             }
         }
         candidates.sort_by(|a, b| b.score.cmp(&a.score));
-        return candidates.len();
+        candidates.len()
     }
 }
 
@@ -101,7 +101,7 @@ pub struct Message {
 
 impl Message {
     pub fn new() -> Message {
-        return Message {
+        Message {
             df: 0.0,
             min_dt: 15.0,
             max_dt: 0.0,
@@ -109,7 +109,7 @@ impl Message {
             min_score: 100,
             text: String::new(),
             hash: 0,
-        };
+        }
     }
 }
 
@@ -120,27 +120,27 @@ pub struct FT8Decode<'a> {
 
 fn max2(a: f32, b: f32) -> f32 {
     if a >= b {
-        return a;
+        a
     } else {
-        return b;
+        b
     }
 }
 
 fn max4(a: f32, b: f32, c: f32, d: f32) -> f32 {
-    return max2(max2(a, b), max2(c, d));
+    max2(max2(a, b), max2(c, d))
 }
 
 fn pack_bits(bit_array: &[u8; FTX_LDPC_N], num_bits: usize, packed: &mut [u8; FTX_LDPC_K_BYTES]) {
     let num_bytes = (num_bits + 7) / 8;
-    for i in 0..num_bytes {
-        packed[i] = 0;
+    for pkd in packed.iter_mut().take(num_bytes) {
+        *pkd = 0;
     }
 
     let mut mask: u8 = 0x80;
     let mut byte_idx: usize = 0;
 
-    for i in 0..num_bits {
-        if bit_array[i] != 0 {
+    for b in bit_array.iter().take(num_bits) {
+        if *b != 0 {
             packed[byte_idx] |= mask;
         }
         mask >>= 1;
@@ -153,19 +153,19 @@ fn pack_bits(bit_array: &[u8; FTX_LDPC_N], num_bits: usize, packed: &mut [u8; FT
 
 impl<'a> FT8Decode<'a> {
     pub fn new(wf: &'a Waterfall) -> FT8Decode {
-        return FT8Decode {
+        FT8Decode {
             wf,
             message: Vec::new(),
-        };
+        }
     }
 
     fn ftx_normalize_logl(&self, log174: &mut [f32; FTX_LDPC_N]) {
         let mut sum = 0.0f32;
         let mut sum2 = 0.0f32;
 
-        for i in 0..FTX_LDPC_N as usize {
-            sum += log174[i];
-            sum2 += log174[i] * log174[i];
+        for lg in log174.iter().take(FTX_LDPC_N as usize) {
+            sum += lg;
+            sum2 += lg * lg;
         }
 
         let inv_n = 1.0f32 / FTX_LDPC_N as f32;
@@ -173,8 +173,8 @@ impl<'a> FT8Decode<'a> {
 
         let norm_factor = (24.0f32 / variance).sqrt();
 
-        for i in 0..FTX_LDPC_N as usize {
-            log174[i] *= norm_factor;
+        for lg in log174.iter_mut().take(FTX_LDPC_N as usize) {
+            *lg *= norm_factor;
         }
     }
 
@@ -240,6 +240,6 @@ impl<'a> FT8Decode<'a> {
         message.max_score = c.score;
         message.min_score = c.score;
         message.hash = crc_calculated;
-        return true;
+        true
     }
 }

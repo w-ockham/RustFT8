@@ -56,7 +56,7 @@ impl Waterfall {
         offset = (offset * self.time_osr as i32) + candidate.time_sub as i32;
         offset = (offset * self.freq_osr as i32) + candidate.freq_sub as i32;
         offset = (offset * self.num_bins as i32) + candidate.freq_offset as i32;
-        return offset;
+        offset
     }
 }
 
@@ -74,7 +74,7 @@ pub struct Monitor<'a> {
 
 fn hann(i: usize, n: usize) -> f32 {
     let x = (std::f32::consts::PI * i as f32 / n as f32).sin();
-    return x * x;
+    x * x
 }
 
 impl<'a> Monitor<'a> {
@@ -98,8 +98,8 @@ impl<'a> Monitor<'a> {
         for _i in 0..(nfft / 2 + 1) {
             spectrum.push(Complex::new(0.0f32, 0.0f32))
         }
-        print!(
-            "block size ={}, subblock_size = {}, num of fft = {}, max_block = {}, num of bin = {}\n",
+        println!(
+            "block size ={}, subblock_size = {}, num of fft = {}, max_block = {}, num of bin = {}",
             block_size, subblock_size, nfft, max_blocks, num_bins
         );
         Monitor {
@@ -137,13 +137,8 @@ impl<'a> Monitor<'a> {
 
             // make input and output vectors
             let mut indata = self.samples[frame_from..frame_to].to_vec();
-            if self.wf.freq_osr > 2 {
-                for _ in 0..self.nfft / 2 {
-                    indata.push(0.0f32);
-                }
-            }
             for (i, v) in indata.iter_mut().enumerate() {
-                *v = *v * self.window[i];
+                *v *= self.window[i];
             }
 
             // Forward transform the input data
@@ -184,8 +179,8 @@ impl<'a> Monitor<'a> {
         for frame in (0..self.samples.len() - self.block_size).step_by(self.block_size) {
             self.process(frame);
         }
-        print!(
-            "{} points FFT invoked {} times.\n",
+        println!(
+            "{} points FFT invoked {} times.",
             self.nfft,
             self.wf.num_blocks * self.wf.time_osr
         );

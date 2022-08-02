@@ -90,7 +90,7 @@ pub fn pack28(callsign: &str) -> i32 {
         return (NTOKENS + MAX22) as i32 + n28;
     }
 
-    return -1;
+    -1
 }
 
 // Check if a string could be a valid standard callsign or a valid
@@ -106,15 +106,10 @@ pub fn chkcall(call: &str) -> bool {
     }
 
     if call.len() > 6 {
-        if let Some(_) = call.find('/') {
-            return true;
-        } else {
-            return false;
-        }
+        return call.find('/').is_some();
     }
     // TODO: implement suffix parsing (or rework?)
-
-    return true;
+    true
 }
 
 pub fn packgrid(grid4: &str) -> u16 {
@@ -151,11 +146,11 @@ pub fn packgrid(grid4: &str) -> u16 {
     if gstr[0] == 'R' {
         let dd = dd_to_int(&grid4.chars().take(1).collect::<String>(), 3);
         let irpt = (35 + dd) as u16;
-        return (MAXGRID4 + irpt) | 0x8000; // ir = 1
+        (MAXGRID4 + irpt) | 0x8000 // ir = 1
     } else {
         let dd = dd_to_int(grid4, 3);
         let irpt = (35 + dd) as u16;
-        return MAXGRID4 + irpt; // ir = 0
+        MAXGRID4 + irpt // ir = 0
     }
     //return MAXGRID4 + 1;
 }
@@ -200,7 +195,7 @@ pub fn pack77_1(msg: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
     b77[8] = (igrid4 >> 2) as u8;
     b77[9] = (igrid4 << 6) as u8 | (i3 << 3) as u8;
 
-    return 0;
+    0
 }
 
 pub fn packtext77(text: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) {
@@ -238,7 +233,7 @@ pub fn packtext77(text: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) {
         }
         // Here we double each added number in order to have the result multiplied
         // by two as well, so that it's a 71 bit number left-aligned in 72 bits (9 bytes)
-        x = x << 1;
+        x <<= 1;
 
         // Now add the number to our long number
         for i in (0..8).rev() {
@@ -248,12 +243,12 @@ pub fn packtext77(text: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) {
 
             x += b77[i] as u16;
             b77[i] = (x & 0xFF) as u8;
-            x = x >> 8;
+            x >>= 8;
         }
     }
     // Set n3=0 (bits 71..73) and i3=0 (bits 74..76)
-    b77[8] = b77[8] & 0xFE;
-    b77[9] = b77[9] & 0x00;
+    b77[8] &= 0xFE;
+    b77[9] &= 0x00;
 }
 
 pub fn pack77(msg: &String, c77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
@@ -270,5 +265,5 @@ pub fn pack77(msg: &String, c77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
     // Default to free text
     // i3=0 n3=0
     packtext77(msg, c77);
-    return 0;
+    0
 }
