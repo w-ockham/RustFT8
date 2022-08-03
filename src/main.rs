@@ -33,10 +33,10 @@ fn main() {
         sample_rate: 12000,
         symbol_period: 0.16f32,
         slot_time: 15.0f32,
-        time_osr: 64,
+        time_osr: 2,
         freq_osr: 2,
         sync_min_score: 10,
-        num_threads: 16,
+        num_threads: 1,
         ldpc_max_iteration: 20,
     };
 
@@ -64,7 +64,7 @@ fn main() {
         let mut file_out = File::create("./resampled.wav").unwrap();
         writer::to_file(&mut file_out, &WavData::new(header, samples.clone())).unwrap();
     } else if args.len() == 3 {
-        // Generate GSK symbol
+        // Generate FT8 symbols and GFSK modulated samples.
         let frequency = args[1].parse::<f32>().unwrap();
 
         if pack77(&args[2], &mut packed) < 0 {
@@ -104,6 +104,8 @@ fn main() {
         silence_before.append(&mut silence_after);
         samples = silence_before;
 
+        samples = samples.iter().map(|x| *x / 1.0).collect::<Vec<_>>();
+
         header.sample_rate = config.sample_rate;
         header.channels = 1;
         header.bits_per_sample = 16;
@@ -138,7 +140,8 @@ fn main() {
     let wf = Arc::new(mon.wf);
     let config = Arc::new(config);
     let mut handles = vec![];
-    let message_hash: Arc<Mutex<HashMap<u16, Message>>> = Arc::new(Mutex::new(HashMap::new()));
+    let message_hash: Arc<Mutex<HashMap<u16,Message>>> = Arc::new(Mutex::new(HashMap::new()));
+    
     print!("Spawning {} threads.\n", &config.num_threads);
 
     for time_sub_from in (0..config.time_osr).step_by(time_osr_step) {
@@ -175,31 +178,13 @@ fn main() {
 
                     _success += 1;
 
-                    message.df = freq_hz;
-                    message.min_dt = time_sec;
-                    message.max_dt = time_sec;
-
                     let mut message_hash = message_hash.lock().unwrap();
-                    match message_hash.get_key_value(&message.hash) {
+                    match message_hash.get_mut(&message.hash) {
                         None => {
-                            message_hash.insert(message.hash, message);
+                            message_hash.insert(message.hash,  message);
                         }
-                        Some((_, v)) => {
-                            if message.max_score < v.max_score {
-                                message.max_score = v.max_score
-                            }
-                            if message.min_score > v.min_score {
-                                message.min_score = v.min_score;
-                            }
-                            if v.min_dt > time_sec {
-                                message.min_dt = time_sec;
-                                message.max_dt = v.max_dt;
-                                message_hash.insert(message.hash, message);
-                            } else if time_sec > v.max_dt {
-                                message.max_dt = time_sec;
-                                message.min_dt = v.min_dt;
-                                message_hash.insert(message.hash, message);
-                            }
+                        Some(v ) => {
+                            v.df.push((c.score, c.time_offset + c.time_sub as i32, c.freq_offset + c.freq_sub));
                         }
                     }
                 }
@@ -220,20 +205,19 @@ fn main() {
         handle.join().unwrap()
     }
 
-    let messages = message_hash.lock().unwrap();
+    let mut messages = message_hash.lock().unwrap();
     print!(
         "Decoded messages: {} stations. ({:?} elapsed.)\n",
         messages.len(),
         start.elapsed()
     );
-    for (i, v) in messages.values().enumerate() {
+    for (i, v) in messages.values_mut().enumerate() {
         //print!("{:?} diff DT={}ms\n", v, (v.max_dt - v.min_dt) * 1000.0);
+        v.df.sort_by(|x, y| x.1.cmp(&y.1));
         print!(
-            "{}: {} {} {} {}\n",
+            "{}: {}\n",
             i + 1,
-            v.max_score,
-            v.min_dt,
-            v.df,
+           // v.df,
             v.text
         );
     }

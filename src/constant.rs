@@ -1,32 +1,34 @@
-pub const FT8_ND: usize = 58;
 ///< Data symbols
-pub const FT8_NN: usize = 79;
+pub const FT8_ND: usize = 58;
 ///< Total channel symbols (FT8_NS + FT8_ND)
-pub const FT8_LENGTH_SYNC: usize = 7;
+pub const FT8_NN: usize = 79;
 ///< Length of each sync group
-pub const FT8_NUM_SYNC: usize = 3;
+pub const FT8_LENGTH_SYNC: usize = 7;
 ///< Number of sync groups
-pub const FT8_SYNC_OFFSET: usize = 36;
+pub const FT8_NUM_SYNC: usize = 3;
 ///< Offset between sync groups
+pub const FT8_SYNC_OFFSET: usize = 36;
+
 pub const FT8_COSTAS_PATTERN: [usize; 7] = [3, 1, 4, 0, 6, 5, 2];
 
-pub const FTX_LDPC_N: usize = 174;
 ///< Number of bits in the encoded message (payload with LDPC checksum bits)
-pub const FTX_LDPC_K: usize = 91;
+pub const FTX_LDPC_N: usize = 174;
 ///< Number of payload bits (including CRC)
-pub const FTX_LDPC_M: usize = 83;
+pub const FTX_LDPC_K: usize = 91;
 ///< Number of LDPC checksum bits (FTX_LDPC_N - FTX_LDPC_K)
-pub const FTX_LDPC_N_BYTES: usize = (FTX_LDPC_N + 7) / 8;
+pub const FTX_LDPC_M: usize = 83;
 ///< Number of whole bytes needed to store 174 bits (full message)
-pub const FTX_LDPC_K_BYTES: usize = (FTX_LDPC_K + 7) / 8;
+pub const FTX_LDPC_N_BYTES: usize = (FTX_LDPC_N + 7) / 8;
 ///< Number of whole bytes needed to store 91 bits (payload + CRC only)
+pub const FTX_LDPC_K_BYTES: usize = (FTX_LDPC_K + 7) / 8;
 
 // Gray code map (FTx bits -> channel symbols)
 pub const FT8_GRAY_MAP: [usize; 8] = [0, 1, 3, 2, 5, 6, 4, 7];
 // Define CRC parameters
-pub const FT8_CRC_POLYNOMIAL: u16 = 0x2757;
 ///< CRC-14 polynomial without the leading (MSB) 1
+pub const FT8_CRC_POLYNOMIAL: u16 = 0x2757;
 pub const FT8_CRC_WIDTH: usize = 14;
+
 // Parity generator matrix for (174,91) LDPC code, stored in bitpacked format (MSB first)
 pub const FTX_LDPC_GENERATOR: [[u8; FTX_LDPC_K_BYTES]; FTX_LDPC_M] = [
     [

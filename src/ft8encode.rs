@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::constant::*;
 use crate::crc::*;
 
@@ -53,6 +55,7 @@ fn encode174(message: &[u8; FTX_LDPC_K_BYTES], codeword: &mut [u8; FTX_LDPC_N_BY
     }
 }
 
+
 pub fn ft8_encode(payload: &[u8; FTX_LDPC_K_BYTES], tones: &mut [usize; FT8_NN]) {
     let mut a91 = [0u8; FTX_LDPC_K_BYTES]; // Store 77 bits of payload + 14 bits CRC
 
@@ -61,7 +64,9 @@ pub fn ft8_encode(payload: &[u8; FTX_LDPC_K_BYTES], tones: &mut [usize; FT8_NN])
     ftx_add_crc(payload, &mut a91);
 
     let mut codeword = [0u8; FTX_LDPC_N_BYTES];
+
     encode174(&a91, &mut codeword);
+
 
     // Message structure: S7 D29 S7 D29 S7
     // Total symbols: 79 (FT8_NN)
@@ -109,8 +114,22 @@ pub fn ft8_encode(payload: &[u8; FTX_LDPC_K_BYTES], tones: &mut [usize; FT8_NN])
                 mask = 0x80u8;
                 i_byte += 1
             }
-
+            //3bitを8つのトーンに変換
+            //グレイコードになっているので隣のトーンと
+            //のビットパターンとのハミング距離は1になる
             tones[i_tone] = FT8_GRAY_MAP[bits3 as usize];
         }
     }
+}
+#[cfg(test)]
+mod tests {
+    mod test_utils;
+    use crate::ldpc::*;
+    use crate::test_utils::*;
+    /* 
+    let mut codeword_bits = [0u8; FTX_LDPC_N];
+    unpack_bits(&codeword, &mut codeword_bits);
+    print!("check sum errors = {}\n", ldpc_check(&codeword_bits));
+    print!("Raw FT8 codewards = {:?}\n",codeword_bits);
+    */
 }

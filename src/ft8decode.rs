@@ -1,3 +1,5 @@
+use libm::log;
+
 use crate::constant::*;
 use crate::crc::{ftx_compute_crc, ftx_extract_crc};
 use crate::ldpc::*;
@@ -89,12 +91,8 @@ impl<'a> FT8FindSync<'a> {
 }
 
 #[derive(Debug)]
-pub struct Message {
-    pub df: f32,
-    pub min_dt: f32,
-    pub max_dt: f32,
-    pub max_score: i32,
-    pub min_score: i32,
+pub struct Message{
+    pub df : Vec<(i32, i32, usize)>,
     pub text: String,
     pub hash: u16,
 }
@@ -102,11 +100,7 @@ pub struct Message {
 impl Message {
     pub fn new() -> Message {
         return Message {
-            df: 0.0,
-            min_dt: 15.0,
-            max_dt: 0.0,
-            max_score: 0,
-            min_score: 100,
+            df : Vec::new(),
             text: String::new(),
             hash: 0,
         };
@@ -181,25 +175,38 @@ impl<'a> FT8Decode<'a> {
     fn ft8_extract_symbol(&self, idx: usize, logl: &mut [f32; FTX_LDPC_N], bit_idx: usize) {
         let mut s2: [f32; 8] = [0.0; 8];
 
+        //3bitグレイコードに対応するトーンの強度をs2に入れる
         for j in 0..8 {
             s2[j] = self.wf.mag[idx + FT8_GRAY_MAP[j]] as f32;
         }
+        //グレイコード上のMSBのLLRをtone4-7(1)の最大値からtone0-3(0)の最大値を引いたもの
         logl[bit_idx + 0] = max4(s2[4], s2[5], s2[6], s2[7]) - max4(s2[0], s2[1], s2[2], s2[3]);
-        logl[bit_idx + 1] = max4(s2[2], s2[3], s2[6], s2[7]) - max4(s2[0], s2[1], s2[4], s2[5]);
-        logl[bit_idx + 2] = max4(s2[1], s2[3], s2[5], s2[7]) - max4(s2[0], s2[2], s2[4], s2[6]);
+        //同様に2bit目はtone2,tone3,tone6,tone7
+        //logl[bit_idx + 1] = max4(s2[2], s2[3], s2[6], s2[7]) - max4(s2[0], s2[1], s2[4], s2[5]);
+        logl[bit_idx + 1] = max4(s2[2], s2[3], s2[6], s2[7]) - max4(s2[0], s2[1], s2[5], s2[4]);
+        //同様に3bitも計算
+        //logl[bit_idx + 2] = max4(s2[1], s2[3], s2[5], s2[7]) - max4(s2[0], s2[2], s2[4], s2[6]);
+        logl[bit_idx + 2] = max4(s2[1], s2[3], s2[5], s2[7]) - max4(s2[0], s2[2], s2[6], s2[4]);
+    
     }
 
     fn ft8_extract_likelihood(&self, c: &Candidate, log174: &mut [f32; FTX_LDPC_N]) {
+        //58bit分のシンボルを取り出す
         for k in 0..FT8_ND {
+            //コスタス配列を飛ばしたシンボル部分
             let sym_idx = k + if k < 29 { 7 } else { 14 };
+            //3bit分ずつ取り出す
             let bit_idx = 3 * k;
 
+            //ウォーターフォール上でシンボルあるブロック
             let block = c.time_offset + sym_idx as i32;
+            //ウォーターフォール外なら0
             if (block < 0) || (block >= self.wf.num_blocks as i32) {
                 log174[bit_idx + 0] = 0.0f32;
                 log174[bit_idx + 1] = 0.0f32;
                 log174[bit_idx + 2] = 0.0f32;
             } else {
+                //ウォーターフォール内であればシンボルを展開する
                 let idx = (self.wf.get_index(c) + (sym_idx * self.wf.block_stride) as i32) as usize;
                 self.ft8_extract_symbol(idx, log174, bit_idx);
             }
@@ -213,7 +220,8 @@ impl<'a> FT8Decode<'a> {
         self.ftx_normalize_logl(&mut log174);
 
         let mut plain174 = [0u8; FTX_LDPC_N];
-        let ldpc_errors = bp_decode(log174, max_iteration, &mut plain174);
+
+        let ldpc_errors = ldpc_decode(log174, max_iteration, &mut plain174);
 
         if ldpc_errors > 0 {
             return false;
@@ -232,13 +240,21 @@ impl<'a> FT8Decode<'a> {
             /*print!("CRC error! {:?}\n",c);*/
             return false;
         }
-
+        /*
+        print!("Decoded message = {:?}\n", plain174);
+        print!(
+            "Normalized likelihood = {:?}\n",
+            log174
+                .iter()
+                .map(|x| if *x > 0.0 { 1 } else { 0 })
+                .collect::<Vec<_>>()
+        );
+        */
         if unpack77(&a91, &mut message.text) < 0 {
             //print!("Message format error!\n");
             return false;
         }
-        message.max_score = c.score;
-        message.min_score = c.score;
+        message.df.push((c.score, c.time_offset + c.time_sub as i32, c.freq_offset + c.freq_sub));
         message.hash = crc_calculated;
         return true;
     }
