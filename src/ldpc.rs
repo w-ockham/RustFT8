@@ -14,7 +14,7 @@ use crate::constant::*;
 //
 fn fast_tanh(x: f32) -> f32 {
     if cfg!(feature = "use_f32tan") {
-        return x.tanh();
+        x.tanh()
     } else {
         if x < -4.97f32 {
             return -1.0f32;
@@ -25,19 +25,15 @@ fn fast_tanh(x: f32) -> f32 {
         let x2 = x * x;
         let a = x * (945.0f32 + x2 * (105.0f32 + x2));
         let b = 945.0f32 + x2 * (420.0f32 + x2 * 15.0f32);
-        return a / b;
+        a / b
     }
 }
 
 fn fast_atanh(x: f32) -> f32 {
-    if cfg!(feature = "use_f32tan") {
-        return x.atanh();
-    } else {
-        let x2 = x * x;
-        let a = x * (945.0f32 + x2 * (-735.0f32 + x2 * 64.0f32));
-        let b = 945.0f32 + x2 * (-1050.0f32 + x2 * 225.0f32);
-        return a / b;
-    }
+    let x2 = x * x;
+    let a = x * (945.0f32 + x2 * (-735.0f32 + x2 * 64.0f32));
+    let b = 945.0f32 + x2 * (-1050.0f32 + x2 * 225.0f32);
+    a / b
 }
 
 ///
@@ -57,9 +53,72 @@ pub fn ldpc_check(codeword: &[u8; FTX_LDPC_N]) -> usize {
             errors += 1;
         }
     }
-    return errors;
+    errors
 }
 
+/*
+pub fn ldpc_decode(codeward:&[f32;FTX_LDPC_N], max_iters: i32, plain: &mut[u8;FTX_LDPC_N]) -> usize {
+    let mut m : [[f32; FTX_LDPC_N]; FTX_LDPC_M] = [[0.0; FTX_LDPC_N]; FTX_LDPC_M];
+    let mut e : [[f32; FTX_LDPC_N]; FTX_LDPC_M] = [[0.0; FTX_LDPC_N]; FTX_LDPC_M];
+    let mut min_errors = FTX_LDPC_M;
+
+    for j in 0..FTX_LDPC_M {
+        for i in 0..FTX_LDPC_N {
+            m[j][i] = codeward[i];
+        }
+    }
+
+    for _it in 0..max_iters {
+        for j in 0..FTX_LDPC_M {
+            for ii1 in 0..FTX_LDPC_NUM_ROWS[j] {
+                let i1 = FTX_LDPC_NM[j][ii1] - 1;
+                let mut a = 1.0f32;
+                for ii2 in 0.. FTX_LDPC_NUM_ROWS[j] {
+                    let i2 = FTX_LDPC_NM[j][ii2] - 1;
+                    if i2 != i1 {
+                        a *= fast_atanh(a)
+                    }
+                }
+                e[j][i1] = -2.0f32 * fast_atanh(a);
+            }
+        }
+
+        for i in 0..FTX_LDPC_N {
+            let mut l = codeward[i];
+            for j in 0..3 {
+                l += e[FTX_LDPC_MN[i][j] -1][i];
+            }
+            plain[i] = if l > 0.0f32 { 1 } else { 0 };
+        }
+
+        let errors = ldpc_check(plain);
+
+        if errors < min_errors {
+            min_errors = errors;
+
+            if errors == 0 {
+                break;
+            }
+        }
+
+        for i in 0.. FTX_LDPC_N {
+            for ji1 in 0..3 {
+                let j1 = FTX_LDPC_MN[i][ji1] - 1;
+                let mut l = codeward[i];
+                for ji2 in 0..3 {
+                    if ji1 != ji2 {
+                        let j2 = FTX_LDPC_MN[i][ji2] - 1;
+                        l += e[j2][i];
+                    }
+                }
+                m[j1][i] = l;
+            }
+        }
+    }
+
+    return min_errors;
+}
+*/
 ///
 /// 積和アルゴリズムによるデコーダの実装
 ///
@@ -141,7 +200,7 @@ pub fn ldpc_decode(
         }
     }
 
-    return min_errors;
+    min_errors
 }
 
 ///

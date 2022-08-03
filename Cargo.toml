@@ -17,4 +17,3 @@ use_f32tan = []
 "realfft" = "3"
 "libm" = "0.2.2"
 "plotters" = "0.3.2"
-"colorous" = "1.0.6"

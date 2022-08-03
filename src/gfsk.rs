@@ -13,11 +13,11 @@ const GFSK_CONST_K: f32 = 5.336446f32;
 /// @param[out] pulse Output array of pulse samples
 ///
 pub fn gfsk_pulse(n_spsym: usize, symbol_bt: f32, pulse: &mut Vec<f32>) {
-    for i in 0..3 * n_spsym {
+    for (i, p) in pulse.iter_mut().enumerate().take(3 * n_spsym) {
         let t = i as f32 / n_spsym as f32 - 1.5;
         let arg1 = GFSK_CONST_K * symbol_bt * (t + 0.5);
         let arg2 = GFSK_CONST_K * symbol_bt * (t - 0.5);
-        pulse[i] = (libm::erff(arg1) - libm::erff(arg2)) / 2.0;
+        *p = (libm::erff(arg1) - libm::erff(arg2)) / 2.0;
     }
 }
 
@@ -58,10 +58,10 @@ pub fn synth_gfsk(
 
     gfsk_pulse(n_spsym, symbol_bt, &mut pulse);
 
-    for i in 0..n_sym {
+    for (i , sym)  in symbols.iter().enumerate().take(n_sym) {
         let ib = i * n_spsym;
         for j in 0..3 * n_spsym {
-            dphi[j + ib] += dphi_peak * symbols[i] as f32 * pulse[j];
+            dphi[j + ib] += dphi_peak * (*sym as f32) * pulse[j];
         }
     }
 

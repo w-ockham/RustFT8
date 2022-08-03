@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::constant::*;
 use crate::crc::*;
 
@@ -8,7 +6,7 @@ pub fn parity8(mut x: u8) -> u8 {
     x ^= x >> 4; // a b c d ae bf cg dh
     x ^= x >> 2; // a b ac bd cae dbf aecg bfdh
     x ^= x >> 1; // a ab bac acbd bdcae caedbf aecgbfdh
-    return x % 2; // modulo 2
+    x % 2 // modulo 2
 }
 
 // Encode via LDPC a 91-bit message and return a 174-bit codeword.
@@ -36,8 +34,8 @@ fn encode174(message: &[u8; FTX_LDPC_K_BYTES], codeword: &mut [u8; FTX_LDPC_N_BY
         // but we only compute the sum modulo 2.
         let mut nsum = 0u8;
 
-        for j in 0..FTX_LDPC_K_BYTES {
-            let bits = message[j] & FTX_LDPC_GENERATOR[i][j]; // bitwise AND (bitwise multiplication)
+        for (j, m) in message.iter().enumerate().take(FTX_LDPC_K_BYTES) {
+            let bits = m & FTX_LDPC_GENERATOR[i][j]; // bitwise AND (bitwise multiplication)
             nsum ^= parity8(bits); // bitwise XOR (addition modulo 2)
         }
 
@@ -77,9 +75,9 @@ pub fn ft8_encode(payload: &[u8; FTX_LDPC_K_BYTES], tones: &mut [usize; FT8_NN])
     for i_tone in 0..FT8_NN {
         if i_tone < 7 {
             tones[i_tone] = FT8_COSTAS_PATTERN[i_tone];
-        } else if (i_tone >= 36) && (i_tone < 43) {
+        } else if (36..43).contains(&i_tone) {
             tones[i_tone] = FT8_COSTAS_PATTERN[i_tone - 36];
-        } else if (i_tone >= 72) && (i_tone < 79) {
+        } else if (72..79).contains(&i_tone) {
             tones[i_tone] = FT8_COSTAS_PATTERN[i_tone - 72];
         } else {
             // Extract 3 bits from codeword at i-th position
@@ -89,7 +87,7 @@ pub fn ft8_encode(payload: &[u8; FTX_LDPC_K_BYTES], tones: &mut [usize; FT8_NN])
                 bits3 |= 4;
             }
 
-            mask = mask >> 1;
+            mask >>= 1;
             if mask == 0 {
                 mask = 0x80u8;
                 i_byte += 1;
@@ -99,7 +97,7 @@ pub fn ft8_encode(payload: &[u8; FTX_LDPC_K_BYTES], tones: &mut [usize; FT8_NN])
                 bits3 |= 2;
             }
 
-            mask = mask >> 1;
+            mask >>= 1;
             if mask == 0 {
                 mask = 0x80u8;
                 i_byte += 1;
@@ -109,7 +107,7 @@ pub fn ft8_encode(payload: &[u8; FTX_LDPC_K_BYTES], tones: &mut [usize; FT8_NN])
                 bits3 |= 1;
             }
 
-            mask = mask >> 1;
+            mask >>= 1;
             if mask == 0 {
                 mask = 0x80u8;
                 i_byte += 1

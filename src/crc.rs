@@ -15,23 +15,21 @@ pub fn ftx_compute_crc(message: &[u8; FTX_LDPC_K_BYTES], num_bits: usize) -> u16
         if (remainder & TOPBIT) != 0 {
             remainder = (remainder << 1) ^ FT8_CRC_POLYNOMIAL;
         } else {
-            remainder = remainder << 1;
+            remainder <<= 1;
         }
     }
-    return remainder & ((TOPBIT << 1) - 1u16);
+    remainder & ((TOPBIT << 1) - 1u16)
 }
 
 pub fn ftx_extract_crc(a91: &[u8; FTX_LDPC_K_BYTES]) -> u16 {
     let chksum: u16 =
         (((a91[9] & 0x07u8) as u16) << 11) | (a91[10] as u16) << 3 | (a91[11] as u16) >> 5;
-    return chksum;
+    chksum
 }
 
 pub fn ftx_add_crc(payload: &[u8; FTX_LDPC_K_BYTES], a91: &mut [u8; FTX_LDPC_K_BYTES]) {
     // Copy 77 bits of payload data
-    for i in 0..10 {
-        a91[i] = payload[i];
-    }
+    a91[..10].copy_from_slice(&payload[..10]);
     // Clear 3 bits after the payload to make 82 bits
     a91[9] &= 0xF8u8;
     a91[10] = 0;

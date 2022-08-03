@@ -68,7 +68,7 @@ fn main() {
         let frequency = args[1].parse::<f32>().unwrap();
 
         if pack77(&args[2], &mut packed) < 0 {
-            print!("Cannot parse message! {}\n", &args[1]);
+            println!("Cannot parse message! {}", &args[1]);
             return;
         }
 
@@ -78,7 +78,7 @@ fn main() {
         for t in tones.iter() {
             print!("{} ", t);
         }
-        print!("\n");
+        println!();
 
         let num_samples =
             (0.5 + FT8_NN as f32 * config.symbol_period * config.sample_rate as f32) as usize;
@@ -129,8 +129,8 @@ fn main() {
     let start = Instant::now();
 
     mon.process_all();
-    print!(
-        "Num. of block = {}, Max mag = {} ({:?} elapsed.)\n",
+    println!(
+        "Num. of block = {}, Max mag = {} ({:?} elapsed.)",
         mon.wf.num_blocks,
         mon.max_mag,
         start.elapsed()
@@ -140,9 +140,8 @@ fn main() {
     let wf = Arc::new(mon.wf);
     let config = Arc::new(config);
     let mut handles = vec![];
-    let message_hash: Arc<Mutex<HashMap<u16,Message>>> = Arc::new(Mutex::new(HashMap::new()));
-    
-    print!("Spawning {} threads.\n", &config.num_threads);
+    let message_hash: Arc<Mutex<HashMap<u16, Message>>> = Arc::new(Mutex::new(HashMap::new()));
+    println!("Spawning {} threads.", &config.num_threads);
 
     for time_sub_from in (0..config.time_osr).step_by(time_osr_step) {
         let wf = Arc::clone(&wf);
@@ -206,16 +205,15 @@ fn main() {
     }
 
     let mut messages = message_hash.lock().unwrap();
-    print!(
-        "Decoded messages: {} stations. ({:?} elapsed.)\n",
+    println!(
+        "Decoded messages: {} stations. ({:?} elapsed.)",
         messages.len(),
         start.elapsed()
     );
     for (i, v) in messages.values_mut().enumerate() {
         //print!("{:?} diff DT={}ms\n", v, (v.max_dt - v.min_dt) * 1000.0);
-        v.df.sort_by(|x, y| x.1.cmp(&y.1));
-        print!(
-            "{}: {}\n",
+        println!(
+            "{}: {}",
             i + 1,
            // v.df,
             v.text
