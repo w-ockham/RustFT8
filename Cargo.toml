@@ -3,6 +3,12 @@ name = "rustft8"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default =["ldpc_bp"]
+ldpc_bp = []
+ldpc_bitflip =[]
+use_f32tan = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -10,3 +16,5 @@ edition = "2021"
 "rustfft" = "6"
 "realfft" = "3"
 "libm" = "0.2.2"
+"plotters" = "0.3.2"
+"colorous" = "1.0.6"
