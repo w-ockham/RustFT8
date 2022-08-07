@@ -19,7 +19,7 @@ mod spectrogram;
 mod text;
 mod unpack;
 
-use crate::constant::{FT8_NN, FTX_LDPC_K_BYTES, FT8_SYMBOL_PERIOD, FT8_SLOT_TIME};
+use crate::constant::{FT8_NN, FT8_SLOT_TIME, FT8_SYMBOL_PERIOD, FTX_LDPC_K_BYTES};
 use crate::ft8decode::*;
 use crate::ft8encode::*;
 use crate::gfsk::{synth_gfsk, FT8_SYMBOL_BT};
@@ -32,10 +32,10 @@ fn main() {
 
     let config = Config {
         sample_rate: 12000,
-        time_osr: 8,
+        time_osr: 4,
         freq_osr: 2,
         sync_min_score: 10,
-        num_threads: 4,
+        num_threads: 8,
         ldpc_max_iteration: 20,
     };
 
@@ -80,8 +80,7 @@ fn main() {
 
         let num_samples =
             (0.5 + FT8_NN as f32 * FT8_SYMBOL_PERIOD * config.sample_rate as f32) as usize;
-        let num_silence =
-            ((FT8_SLOT_TIME * config.sample_rate as f32) as usize - num_samples) / 2;
+        let num_silence = ((FT8_SLOT_TIME * config.sample_rate as f32) as usize - num_samples) / 2;
 
         samples = vec![0.0; num_samples];
 
@@ -136,29 +135,34 @@ fn main() {
         start.elapsed()
     );
 
-    let time_osr_step = config.time_osr / config.num_threads;
     let wf = Arc::new(mon.wf);
+    let freq_step = wf.num_bins / config.num_threads;
     let config = Arc::new(config);
     let mut handles = vec![];
     let message_hash: Arc<Mutex<HashMap<u16, Message>>> = Arc::new(Mutex::new(HashMap::new()));
+
     println!("Spawning {} threads.", &config.num_threads);
 
-    for time_sub_from in (0..config.time_osr).step_by(time_osr_step) {
+    for freq_from in (0..wf.num_bins).step_by(freq_step) {
         let wf = Arc::clone(&wf);
         let config = Arc::clone(&config);
         let message_hash = Arc::clone(&message_hash);
         let handle = thread::spawn(move || {
+            let freq_to = if freq_from + freq_step > wf.num_bins - 7 {
+                wf.num_bins - 7
+            } else {
+                freq_from + freq_step
+            };
+            println!("{:?}: freq bin= {} - {}",thread::current().id(), freq_from, freq_to);
             let mut find_sync: FT8FindSync = FT8FindSync::new(&wf);
             let mut candidates: Vec<Candidate> = Vec::new();
             let _num = find_sync.ft8_find_sync(
-                time_sub_from,
-                time_sub_from + time_osr_step,
+                freq_from,
+                freq_to,
                 config.sync_min_score,
                 &mut candidates,
             );
             let decode = FT8Decode::new(&wf);
-            let mut _success = 0;
-
             for c in candidates.iter() {
                 let mut message = Message::new();
                 if decode.ft8_decode(c, config.ldpc_max_iteration, &mut message) {
@@ -166,8 +170,6 @@ fn main() {
                         / FT8_SYMBOL_PERIOD as f32;
                     let time_sec = (c.time_offset as f32 + c.time_sub as f32 / wf.time_osr as f32)
                         * FT8_SYMBOL_PERIOD as f32;
-
-                    _success += 1;
 
                     let mut message_hash = message_hash.lock().unwrap();
                     match message_hash.get_mut(&message.hash) {
@@ -196,6 +198,12 @@ fn main() {
     );
     for (i, mesg) in messages.values_mut().enumerate() {
         let (score, df, dt) = mesg.df[0];
-        println!("{}: {}Hz {}s: {}", i + 1, (dt*10.0).round()/10.0, (df*10.0).round()/10.0, mesg.text);
+        println!(
+            "{}: {}Hz {}s: {}",
+            i + 1,
+            (dt * 10.0).round() / 10.0,
+            (df * 10.0).round() / 10.0,
+            mesg.text
+        );
     }
 }

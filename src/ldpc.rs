@@ -61,9 +61,9 @@ pub fn ldpc_decode(
     max_iters: i32,
     plain: &mut [u8; FTX_LDPC_N],
 ) -> usize {
-    //ビットメッセージを初期化
+    //外部メッセージEを初期化
     let mut tov = [[0.0f32; 7]; FTX_LDPC_N];
-    //チェックメッセージを初期化
+    //ビットメッセージを初期化
     let mut toc = [[0.0f32; 7]; FTX_LDPC_M];
     //最小エラー数を取りうる最大値で初期化
     let mut min_errors = FTX_LDPC_M;

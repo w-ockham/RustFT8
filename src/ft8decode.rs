@@ -66,19 +66,19 @@ impl<'a> FT8FindSync<'a> {
 
     pub fn ft8_find_sync(
         &mut self,
-        time_sub_from: usize,
-        time_sub_to: usize,
+        freq_from: usize,
+        freq_to: usize,
         min_score: i32,
         candidates: &mut Vec<Candidate>,
     ) -> usize {
         //以下の範囲でスペクトログラム上を走査する
         //1.時間・周波数でオーバサンプリングした範囲
-        for time_sub in time_sub_from..time_sub_to {
+        for time_sub in 0..self.wf.time_osr {
             for freq_sub in 0..self.wf.freq_osr {
                 //2. 1.で指定された時間の前後
                 for time_offset in -12..24 {
                     //3. STFTで解析した範囲の周波数の範囲(=ビン数)
-                    for freq_offset in 0..self.wf.num_bins - 7 {
+                    for freq_offset in freq_from..freq_to {
                         let mut c = Candidate {
                             score: 0,
                             time_offset,
