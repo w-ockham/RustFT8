@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default =["ldpc_bp", "window_blackman"]
+default =["ldpc_bp", "window_blackman","spawn_dynamic"]
 ldpc_bp = []
 ldpc_bitflip =[]
 use_f32tan = []
+spawn_dynamic = []
 window_rect = []
 window_hann = []
 window_hamming = []
