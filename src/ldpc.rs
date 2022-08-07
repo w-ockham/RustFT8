@@ -1,17 +1,7 @@
 use crate::constant::*;
-/// 低密度パリティチェック符号　デコーダ
-///   https://github.com/kgoba/ft8_lib
-///~~~
-/// let mut log174: [f32; FTX_LDPC_N] = [0.0f32; FTX_LDPC_N];
-/// ft8_extract_likelihood(c, &mut log174);
-/// ftx_normalize_logl(&mut log174);
-/// let mut plain174 = [0u8; FTX_LDPC_N];
-/// let ldpc_errors = ldpc_decode(log174, max_iteration, &mut plain174);
-///~~~
 
-///
-/// tanh/atanhの近似関数
-//
+// Sum Productアルゴリズムで使われる
+// tanh/atanhを高速化するための近似
 fn fast_tanh(x: f32) -> f32 {
     if cfg!(feature = "use_f32tan") {
         x.tanh()
@@ -30,98 +20,41 @@ fn fast_tanh(x: f32) -> f32 {
 }
 
 fn fast_atanh(x: f32) -> f32 {
-    let x2 = x * x;
-    let a = x * (945.0f32 + x2 * (-735.0f32 + x2 * 64.0f32));
-    let b = 945.0f32 + x2 * (-1050.0f32 + x2 * 225.0f32);
-    a / b
+    if cfg!(feature = "use_f32tan") {
+        x.atan()
+    } else {
+        let x2 = x * x;
+        let a = x * (945.0f32 + x2 * (-735.0f32 + x2 * 64.0f32));
+        let b = 945.0f32 + x2 * (-1050.0f32 + x2 * 225.0f32);
+        a / b
+    }
 }
 
-///
-/// codrewordの各ビットがLDPCの検査行列を満たすかチェック
-///
+// codrewordの各ビットがLDPCの検査行列を満たすかチェック
 pub fn ldpc_check(codeword: &[u8; FTX_LDPC_N]) -> usize {
     let mut errors: usize = 0;
 
+    //検査行列から1列取り出し
     for m in FTX_LDPC_NM {
         let mut x: u8 = 0;
         for i in m {
             if i != 0 {
+                //対応するcodeward中のbitのxorをとる
                 x ^= codeword[i - 1];
             }
         }
+        //偶数パリティであればこの行はOK
         if x != 0 {
             errors += 1;
         }
     }
+    //すべての行を満たす(errors = 0)なら検査行列を満たす
     errors
 }
 
-/*
-pub fn ldpc_decode(codeward:&[f32;FTX_LDPC_N], max_iters: i32, plain: &mut[u8;FTX_LDPC_N]) -> usize {
-    let mut m : [[f32; FTX_LDPC_N]; FTX_LDPC_M] = [[0.0; FTX_LDPC_N]; FTX_LDPC_M];
-    let mut e : [[f32; FTX_LDPC_N]; FTX_LDPC_M] = [[0.0; FTX_LDPC_N]; FTX_LDPC_M];
-    let mut min_errors = FTX_LDPC_M;
-
-    for j in 0..FTX_LDPC_M {
-        for i in 0..FTX_LDPC_N {
-            m[j][i] = codeward[i];
-        }
-    }
-
-    for _it in 0..max_iters {
-        for j in 0..FTX_LDPC_M {
-            for ii1 in 0..FTX_LDPC_NUM_ROWS[j] {
-                let i1 = FTX_LDPC_NM[j][ii1] - 1;
-                let mut a = 1.0f32;
-                for ii2 in 0.. FTX_LDPC_NUM_ROWS[j] {
-                    let i2 = FTX_LDPC_NM[j][ii2] - 1;
-                    if i2 != i1 {
-                        a *= fast_atanh(a)
-                    }
-                }
-                e[j][i1] = -2.0f32 * fast_atanh(a);
-            }
-        }
-
-        for i in 0..FTX_LDPC_N {
-            let mut l = codeward[i];
-            for j in 0..3 {
-                l += e[FTX_LDPC_MN[i][j] -1][i];
-            }
-            plain[i] = if l > 0.0f32 { 1 } else { 0 };
-        }
-
-        let errors = ldpc_check(plain);
-
-        if errors < min_errors {
-            min_errors = errors;
-
-            if errors == 0 {
-                break;
-            }
-        }
-
-        for i in 0.. FTX_LDPC_N {
-            for ji1 in 0..3 {
-                let j1 = FTX_LDPC_MN[i][ji1] - 1;
-                let mut l = codeward[i];
-                for ji2 in 0..3 {
-                    if ji1 != ji2 {
-                        let j2 = FTX_LDPC_MN[i][ji2] - 1;
-                        l += e[j2][i];
-                    }
-                }
-                m[j1][i] = l;
-            }
-        }
-    }
-
-    return min_errors;
-}
-*/
-///
-/// 積和アルゴリズムによるデコーダの実装
-///
+//
+// 積和アルゴリズムによるデコーダの実装
+//
 #[cfg(feature = "ldpc_bp")]
 pub fn ldpc_decode(
     codeward: [f32; FTX_LDPC_N],
@@ -138,10 +71,10 @@ pub fn ldpc_decode(
     //積和アルゴリズムの繰り返し回数分をループ
     for _it in 0..max_iters {
         let mut plain_sum: u8 = 0;
-        //コードワード中の各ビットについてチェックメッセージを更新
+        //(1) テスト
         for n in 0..FTX_LDPC_N {
-            //対数尤度で示されたcodewardの各ビットを対応するチェックノードからのメッセージで更新
-            //(codewardの1ビットについて3つのチェックノードが対応している)
+            //対数尤度で示されたcodewardの各ビットを外部メッセージEで更新
+            //(codewardの1ビットについて3つのチェックノードからの外部メッセージが来る)
             //対数尤度 Log(P(c=1)/P(c=0))で判定しているのでP(c=1)>P(c=0)なら'1'
             //P(c=1)<P(c=0)なら'0'と判定しplain[n]へ格納
             plain[n] = if (codeward[n] + tov[n][0] + tov[n][1] + tov[n][2]) > 0.0f32 {
@@ -155,7 +88,6 @@ pub fn ldpc_decode(
         if plain_sum == 0 {
             break;
         }
-
         //得られたメッセージ列が検査行列を満たすかチェック
         let errors = ldpc_check(plain);
         //パリティエラー数の最小値を更新
@@ -166,53 +98,58 @@ pub fn ldpc_decode(
                 break;
             }
         }
-        //ビットメッセージの更新
-        //検査ノードm個分をループする
+        //(2)ビットメッセージの更新
+        //各検査ノードmに接続するビットノードnからのビットメッセージMを更新する
         for m in 0..FTX_LDPC_M {
-            //該当する検査行列の行数(6～7)
-            for n_idx in 0..FTX_LDPC_NUM_ROWS[m] {
-                //検査ノードmに接続するbitノードnをテーブルLDPC_NMから探す
-                let n = FTX_LDPC_NM[m][n_idx] - 1;
-                //該当する位置のcodeward値を初期値とし
-                let mut tnm = codeward[n];
-                //codeward[n]に接続する検査ノード３つをテーブルLDPC_MNから探す
-                for m_idx in 0..3 {
-                    if (FTX_LDPC_MN[n][m_idx] - 1) != m {
-                        tnm += tov[n][m_idx];
+            //検査行列の各行の要素を取り出す
+            for (n_idx, &n) in FTX_LDPC_NM[m].iter().enumerate() {
+                if n != 0 {
+                    //検査ノードに接続するビットノードnを求め
+                    let n = n - 1;
+                    //受信したcodeward[n](ビット位置n)の値を初期値とし
+                    let mut tnm = codeward[n];
+                    //ビットノードnの外部メッセージE(Extrinsic Message)との和をとる（ただしノードmから来たメッセージは除く）
+                    for m_idx in 0..3 {
+                        if (FTX_LDPC_MN[n][m_idx] - 1) != m {
+                            tnm += tov[n][m_idx];
+                        }
                     }
+                    //E = - 2 * atan(Π tanh(-M/2))のtanh(-M/2)の部分
+                    toc[m][n_idx] = fast_tanh(-tnm / 2.0f32);
                 }
-                toc[m][n_idx] = fast_tanh(-tnm / 2.0f32);
             }
         }
-
+        //(3)チェックメッセージの更新
+        //各ビットノードnに接続する検査ノードmからの外部メッセージEを更新する
         for n in 0..FTX_LDPC_N {
             for m_idx in 0..3 {
+                //ビットノードnに接続する検査ノードmを求め
                 let m = FTX_LDPC_MN[n][m_idx] - 1;
                 let mut tmn = 1.0f32;
-
-                for n_idx in 0..FTX_LDPC_NUM_ROWS[m] {
-                    if (FTX_LDPC_NM[m][n_idx] - 1) != n {
+                //検査ノードmのビットメッセージMの積を求める
+                for (n_idx, &nn) in FTX_LDPC_NM[m].iter().enumerate() {
+                    if (nn != 0) && (nn - 1) != n {
                         tmn *= toc[m][n_idx];
                     }
                 }
+                // 外部メッセージ E = -2 + atan(Π tanh(-M/2))
                 tov[n][m_idx] = -2.0f32 * fast_atanh(tmn);
             }
         }
     }
-
     min_errors
 }
 
-///
-///  ビットフリップアルゴリズムによるデコーダの実装
-///
+//
+//  ビットフリップアルゴリズムによるデコーダの実装
+//
 #[cfg(feature = "ldpc_bitflip")]
 pub fn ldpc_decode(
     codeward: [f32; FTX_LDPC_N],
     max_iters: i32,
     plain: &mut [u8; FTX_LDPC_N],
 ) -> usize {
-    /// 軟判定(log (P(x=1) / P(x=0)))を硬判定に変換
+    /// 軟判定(log (P(x=1) / P(x=0)))を硬判定(0/1)に変換
     plain.copy_from_slice(&codeward.map(|x| if x >= 0.0 { 1u8 } else { 0 }));
 
     for _ in 0..max_iters {

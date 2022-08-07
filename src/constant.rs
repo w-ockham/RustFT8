@@ -1,31 +1,32 @@
-///< Data symbols
+// FT8 symbol Period and Slot time
+pub const FT8_SYMBOL_PERIOD: f32  = 0.16;
+pub const FT8_SLOT_TIME: f32 = 15.0;
+// Data symbols
 pub const FT8_ND: usize = 58;
-///< Total channel symbols (FT8_NS + FT8_ND)
+// Total channel symbols (FT8_NS + FT8_ND)
 pub const FT8_NN: usize = 79;
-///< Length of each sync group
+// Length of each sync group
 pub const FT8_LENGTH_SYNC: usize = 7;
-///< Number of sync groups
+// Number of sync groups
 pub const FT8_NUM_SYNC: usize = 3;
-///< Offset between sync groups
+// Offset between sync groups
 pub const FT8_SYNC_OFFSET: usize = 36;
-
+//　Costas array
 pub const FT8_COSTAS_PATTERN: [usize; 7] = [3, 1, 4, 0, 6, 5, 2];
-
-///< Number of bits in the encoded message (payload with LDPC checksum bits)
+// Number of bits in the encoded message (payload with LDPC checksum bits)
 pub const FTX_LDPC_N: usize = 174;
-///< Number of payload bits (including CRC)
+// Number of payload bits (including CRC)
 pub const FTX_LDPC_K: usize = 91;
-///< Number of LDPC checksum bits (FTX_LDPC_N - FTX_LDPC_K)
+// Number of LDPC checksum bits (FTX_LDPC_N - FTX_LDPC_K)
 pub const FTX_LDPC_M: usize = 83;
-///< Number of whole bytes needed to store 174 bits (full message)
+// Number of whole bytes needed to store 174 bits (full message)
 pub const FTX_LDPC_N_BYTES: usize = (FTX_LDPC_N + 7) / 8;
-///< Number of whole bytes needed to store 91 bits (payload + CRC only)
+// Number of whole bytes needed to store 91 bits (payload + CRC only)
 pub const FTX_LDPC_K_BYTES: usize = (FTX_LDPC_K + 7) / 8;
-
 // Gray code map (FTx bits -> channel symbols)
 pub const FT8_GRAY_MAP: [usize; 8] = [0, 1, 3, 2, 5, 6, 4, 7];
 // Define CRC parameters
-///< CRC-14 polynomial without the leading (MSB) 1
+// CRC-14 polynomial without the leading (MSB) 1
 pub const FT8_CRC_POLYNOMIAL: u16 = 0x2757;
 pub const FT8_CRC_WIDTH: usize = 14;
 
@@ -282,6 +283,9 @@ pub const FTX_LDPC_GENERATOR: [[u8; FTX_LDPC_K_BYTES]; FTX_LDPC_M] = [
     ],
 ];
 
+// Parity Check Equations.
+// Each row corresponds to parity check matrix column.
+// The numbers indicate the codeword bit. 1-origin.
 pub const FTX_LDPC_NM: [[usize; 7]; FTX_LDPC_M] = [
     [4, 31, 59, 91, 92, 96, 153],
     [5, 32, 60, 93, 115, 146, 0],
@@ -546,10 +550,4 @@ pub const FTX_LDPC_MN: [[usize; 3]; FTX_LDPC_N] = [
     [49, 75, 83],
     [20, 44, 48],
     [42, 49, 57],
-];
-
-pub const FTX_LDPC_NUM_ROWS: [usize; FTX_LDPC_M] = [
-    7, 6, 6, 6, 7, 6, 7, 6, 6, 7, 6, 6, 7, 7, 6, 6, 6, 7, 6, 7, 6, 7, 6, 6, 6, 7, 6, 6, 6, 7, 6, 6,
-    6, 6, 7, 6, 6, 6, 7, 7, 6, 6, 6, 6, 7, 7, 6, 6, 6, 6, 7, 6, 6, 6, 7, 6, 6, 6, 6, 7, 6, 6, 6, 7,
-    6, 6, 6, 7, 7, 6, 6, 7, 6, 6, 6, 6, 6, 6, 6, 7, 6, 6, 6,
 ];
