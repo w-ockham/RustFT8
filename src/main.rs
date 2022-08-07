@@ -1,3 +1,4 @@
+use monitor::Waterfall;
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
@@ -27,6 +28,15 @@ use crate::monitor::Candidate;
 use crate::monitor::{Config, Monitor};
 use crate::pack::*;
 
+fn get_df(c: &Candidate, wf: &Waterfall) -> (f32, f32) {
+    let freq_hz =
+        (c.freq_offset as f32 + c.freq_sub as f32 / wf.freq_osr as f32) / FT8_SYMBOL_PERIOD as f32;
+    let time_sec =
+        (c.time_offset as f32 + c.time_sub as f32 / wf.time_osr as f32) * FT8_SYMBOL_PERIOD as f32;
+    
+        (freq_hz, time_sec)
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -39,7 +49,7 @@ fn main() {
         ldpc_max_iteration: 20,
     };
 
-    let mut samples = Vec::new();
+    let mut samples= Vec::new();
     let mut header = WavHeader::new_mono();
     let mut packed = [0u8; FTX_LDPC_K_BYTES];
     let mut tones = [0usize; FT8_NN];
@@ -127,7 +137,7 @@ fn main() {
 
     mon.process_all();
     mon.dump_spectrogram("./fft.png");
-
+    
     println!(
         "Num. of block = {}, Max mag = {} ({:?} elapsed.)",
         mon.wf.num_blocks,
@@ -135,43 +145,30 @@ fn main() {
         start.elapsed()
     );
 
+    let sched = mon.decode_frequencies(config.num_threads);
     let wf = Arc::new(mon.wf);
-    let freq_step = wf.num_bins / config.num_threads;
     let config = Arc::new(config);
     let mut handles = vec![];
     let message_hash: Arc<Mutex<HashMap<u16, Message>>> = Arc::new(Mutex::new(HashMap::new()));
 
-    println!("Spawning {} threads.", &config.num_threads);
-
-    for freq_from in (0..wf.num_bins).step_by(freq_step) {
+    println!("Spawning {} threads for each frequencies ={:?}", &config.num_threads, sched);
+    for (freq_from, freq_to) in sched {    
         let wf = Arc::clone(&wf);
         let config = Arc::clone(&config);
         let message_hash = Arc::clone(&message_hash);
         let handle = thread::spawn(move || {
-            let freq_to = if freq_from + freq_step > wf.num_bins - 7 {
-                wf.num_bins - 7
-            } else {
-                freq_from + freq_step
-            };
-            println!("{:?}: freq bin= {} - {}",thread::current().id(), freq_from, freq_to);
             let mut find_sync: FT8FindSync = FT8FindSync::new(&wf);
             let mut candidates: Vec<Candidate> = Vec::new();
-            let _num = find_sync.ft8_find_sync(
-                freq_from,
-                freq_to,
-                config.sync_min_score,
-                &mut candidates,
-            );
+            let _num =
+                find_sync.ft8_find_sync(freq_from, freq_to, config.sync_min_score, &mut candidates);
             let decode = FT8Decode::new(&wf);
+            let mut success = 0;
             for c in candidates.iter() {
                 let mut message = Message::new();
                 if decode.ft8_decode(c, config.ldpc_max_iteration, &mut message) {
-                    let freq_hz = (c.freq_offset as f32 + c.freq_sub as f32 / wf.freq_osr as f32)
-                        / FT8_SYMBOL_PERIOD as f32;
-                    let time_sec = (c.time_offset as f32 + c.time_sub as f32 / wf.time_osr as f32)
-                        * FT8_SYMBOL_PERIOD as f32;
-
+                    let (freq_hz, time_sec)  = get_df(&c, &wf);
                     let mut message_hash = message_hash.lock().unwrap();
+                    success += 1;
                     match message_hash.get_mut(&message.hash) {
                         None => {
                             message_hash.insert(message.hash, message);
@@ -182,6 +179,14 @@ fn main() {
                     }
                 }
             }
+            println!(
+                "{:?} freq bin= {} - {} : deocdes {} messages from {} candidates.",
+                thread::current().id(),
+                freq_from,
+                freq_to,
+                success,
+                candidates.len()
+            );
         });
         handles.push(handle);
     }

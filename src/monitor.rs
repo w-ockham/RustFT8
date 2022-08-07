@@ -1,12 +1,13 @@
-use crate::constant::{FT8_SYMBOL_PERIOD, FT8_SLOT_TIME};
+use crate::constant::{FT8_SLOT_TIME, FT8_SYMBOL_PERIOD};
 use crate::spectrogram::*;
 use plotters::prelude::*;
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
+use std::collections::binary_heap;
 use std::sync::Arc;
 
 pub struct Config {
-    pub sample_rate: u32,   /* Wave sample rate */
+    pub sample_rate: u32, /* Wave sample rate */
     pub time_osr: usize,
     pub freq_osr: usize,
     pub sync_min_score: i32,
@@ -28,7 +29,7 @@ pub struct Waterfall {
     pub num_bins: usize,   // number of FFT bins in terms of 6.25 Hz
     pub time_osr: usize,   // number of time subdivisions
     pub freq_osr: usize,   // number of frequency subdivisions
-    pub mag: Vec<u8>, //<FFT magnitudes stored as uint8_t[blocks][time_osr][freq_osr][num_bins]
+    pub mag: Vec<u8>,      //<FFT magnitudes stored as uint8_t[blocks][time_osr][freq_osr][num_bins]
     pub block_stride: usize, //< Helper value = time_osr * freq_osr * num_bins
 }
 
@@ -91,7 +92,7 @@ fn wfunc(i: usize, n: usize) -> f32 {
     let a0 = 0.54;
     let a1 = 0.46;
     let pi2 = 2.0 * std::f32::consts::PI;
-    let x = a0 - a1 *(pi2 * i as f32 / n as f32).cos();
+    let x = a0 - a1 * (pi2 * i as f32 / n as f32).cos();
     x
 }
 
@@ -103,7 +104,7 @@ fn wfunc(i: usize, n: usize) -> f32 {
     let a2 = 0.08;
     let pi2 = 2.0 * std::f32::consts::PI;
     let x = i as f32 / n as f32;
-    let w = a0 - a1 *(pi2 * x).cos() + a2 * (2.0 * pi2 * x).cos();
+    let w = a0 - a1 * (pi2 * x).cos() + a2 * (2.0 * pi2 * x).cos();
     w
 }
 
@@ -233,5 +234,62 @@ impl<'a> Monitor<'a> {
         }
         let root = BitMapBackend::new(path, (x_axis as u32, y_axis as u32)).into_drawing_area();
         plot_spectrogram(&spectr, x_axis, y_axis, &root);
+    }
+
+    pub fn decode_frequencies(&self, num_of_threads: usize) -> Vec<(usize, usize)> {
+        let mut sched = Vec::new();
+        if cfg!(feature = "spawn_dynamic") {
+            let mut c = Candidate {
+                score: 0,
+                time_offset: 12,
+                freq_offset: 0,
+                time_sub: 0,
+                freq_sub: 0,
+            };
+            let mut sum = 0f32;
+            for f in 0..self.wf.num_bins {
+                c.freq_offset = f;
+                sum += self.wf.mag[self.wf.get_index(&c) as usize] as f32;
+            }
+
+            let th = sum / self.wf.num_bins as f32 / 2.0;
+            let mut count = 0;
+            for f in 0..self.wf.num_bins {
+                c.freq_offset = f;
+                if self.wf.mag[self.wf.get_index(&c) as usize] > th as u8 {
+                    count += 1;
+                }
+            }
+
+            let average = count / num_of_threads;
+            let (mut from, mut to) = (0, 0);
+            count = 0;
+            for f in 0..self.wf.num_bins {
+                c.freq_offset = f;
+                if self.wf.mag[self.wf.get_index(&c) as usize] > th as u8
+                    || self.wf.mag[self.wf.get_index(&c) as usize + self.wf.block_stride] > th as u8
+                    || self.wf.mag[self.wf.get_index(&c) as usize - self.wf.block_stride] > th as u8
+                {
+                    count += 1;
+                }
+                if count > average {
+                    count = 0;
+                    to = f;
+                    sched.push((from, to));
+                    from = to;
+                }
+            }
+            sched
+        } else {
+            let step = self.wf.num_bins / num_of_threads;
+            for bin in (0..self.wf.num_bins).step_by(step) {
+                if bin + step > self.wf.num_bins - 7 {
+                    sched.push((bin, self.wf.num_bins - 7)) 
+                } else {
+                    sched.push((bin, bin + step))
+                };
+            }
+            sched
+        }
     }
 }
