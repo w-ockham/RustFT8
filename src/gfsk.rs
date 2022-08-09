@@ -4,6 +4,7 @@ pub const FT8_SYMBOL_BT: f32 = 2.0f32;
 ///< symbol smoothing filter bandwidth factor (BT
 const GFSK_CONST_K: f32 = 5.336446f32;
 ///< == pi * sqrt(2 / log(2))
+const PI: f32 = std::f32::consts::PI;
 
 /// Computes a GFSK smoothing pulse.
 /// The pulse is theoretically infinitely long, however, here it's truncated at 3 times the symbol length.
@@ -12,7 +13,8 @@ const GFSK_CONST_K: f32 = 5.336446f32;
 /// @param[in] b Shape parameter (values defined for FT8/FT4)
 /// @param[out] pulse Output array of pulse samples
 ///
-pub fn gfsk_pulse(n_spsym: usize, symbol_bt: f32, pulse: &mut Vec<f32>) {
+pub fn gfsk_pulse(n_spsym: usize, symbol_bt: f32, pulse: &mut [f32]) {
+    // BT積2で誤差関数をシンボル長の３倍の長さで生成する
     for (i, p) in pulse.iter_mut().enumerate().take(3 * n_spsym) {
         let t = i as f32 / n_spsym as f32 - 1.5;
         let arg1 = GFSK_CONST_K * symbol_bt * (t + 0.5);
@@ -38,7 +40,7 @@ pub fn synth_gfsk(
     symbol_bt: f32,
     symbol_period: f32,
     signal_rate: f32,
-    signal: &mut Vec<f32>,
+    signal: &mut [f32],
 ) {
     let n_spsym = (0.5 + signal_rate * symbol_period) as usize; // Samples per symbol
     let n_wave = n_sym * n_spsym; // Number of output samples
@@ -46,12 +48,12 @@ pub fn synth_gfsk(
 
     // Compute the smoothed frequency waveform.
     // Length = (nsym+2)*n_spsym samples, first and last symbols extended
-    let dphi_peak = 2.0 * std::f32::consts::PI * hmod / n_spsym as f32;
-    let mut dphi = vec![0.0; n_wave + 2 * n_spsym];
-
+    let dphi_peak = 2.0 * PI * hmod / n_spsym as f32;
+    let mut dphi = Vec::new();
+    
     // Shift frequency up by f0
-    for i in 0..(n_wave + 2 * n_spsym) {
-        dphi[i] = 2.0 * std::f32::consts::PI * f0 / signal_rate;
+    for _ in 0..(n_wave + 2 * n_spsym) {
+        dphi.push(2.0 * PI * f0 / signal_rate);
     }
 
     let mut pulse = vec![0.0; 3 * n_spsym];
@@ -76,14 +78,14 @@ pub fn synth_gfsk(
     for k in 0..n_wave {
         // Don't include dummy symbols
         signal[k] = phi.sin();
-        phi = libm::fmodf(phi + dphi[k + n_spsym], 2.0 * std::f32::consts::PI);
+        phi = libm::fmodf(phi + dphi[k + n_spsym], 2.0 * PI);
     }
 
     // Apply envelope shaping to the first and last symbols
     let n_ramp = n_spsym / 8;
     for i in 0..n_ramp {
         let env =
-            (1.0 - (2.0 * std::f32::consts::PI * i as f32 / (2.0 * n_ramp as f32)).cos()) / 2.0;
+            (1.0 - (2.0 * PI * i as f32 / (2.0 * n_ramp as f32)).cos()) / 2.0;
         signal[i] *= env;
         signal[n_wave - 1 - i] *= env;
     }

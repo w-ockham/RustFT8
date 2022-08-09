@@ -111,7 +111,7 @@ fn main() {
         silence_before.append(&mut silence_after);
         samples = silence_before;
 
-        samples = samples.iter().map(|x| *x / 1.0).collect::<Vec<_>>();
+        samples = samples.iter().map(|x| *x / 1.0 /* 232044.0 */).collect::<Vec<_>>();
 
         header.sample_rate = config.sample_rate;
         header.channels = 1;
@@ -166,7 +166,7 @@ fn main() {
             for c in candidates.iter() {
                 let mut message = Message::new();
                 if decode.ft8_decode(c, config.ldpc_max_iteration, &mut message) {
-                    let (freq_hz, time_sec)  = get_df(&c, &wf);
+                    let (freq_hz, time_sec)  = get_df(c, &wf);
                     let mut message_hash = message_hash.lock().unwrap();
                     success += 1;
                     match message_hash.get_mut(&message.hash) {
@@ -204,10 +204,11 @@ fn main() {
     for (i, mesg) in messages.values_mut().enumerate() {
         let (score, df, dt) = mesg.df[0];
         println!(
-            "{}: {}Hz {}s: {}",
+            "{} : {}Hz {}s S={}: {}",
             i + 1,
             (dt * 10.0).round() / 10.0,
             (df * 10.0).round() / 10.0,
+            score,
             mesg.text
         );
     }

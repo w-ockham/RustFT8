@@ -25,7 +25,7 @@ pub fn unpack_callsign(n28: u32, ip: u8, i3: u8, result: &mut String) -> bool {
         if n28 <= 1002 {
             // CQ_nnn with 3 digits
             result.push_str("CQ ");
-            int_to_dd(result, n28 as i32 - 3, 3, false);
+            int_to_dd(result, n28 as i32 - 3, false);
             return false; // Success
         }
         if n28 <= 532443 {
@@ -161,7 +161,7 @@ pub fn unpack_type1(
                 if ir > 0 {
                     extra.push('R')
                 }
-                int_to_dd(extra, irpt as i32 - 35, 2, true);
+                int_to_dd(extra, irpt as i32 - 35, true);
             }
         }
     }

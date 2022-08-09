@@ -93,25 +93,6 @@ pub fn pack28(callsign: &str) -> i32 {
     -1
 }
 
-// Check if a string could be a valid standard callsign or a valid
-// compound callsign.
-// Return base call "bc" and a logical "cok" indicator.
-pub fn chkcall(call: &str) -> bool {
-    if call.len() > 11 {
-        return false;
-    }
-
-    if call.contains(r#".+-?"#) {
-        return false;
-    }
-
-    if call.len() > 6 {
-        return call.find('/').is_some();
-    }
-    // TODO: implement suffix parsing (or rework?)
-    true
-}
-
 pub fn packgrid(grid4: &str) -> u16 {
     // Take care of special cases
     if grid4 == "RRR" {
@@ -144,11 +125,11 @@ pub fn packgrid(grid4: &str) -> u16 {
     // Parse report: +dd / -dd / R+dd / R-dd
     // TODO: check the range of dd
     if gstr[0] == 'R' {
-        let dd = dd_to_int(&grid4.chars().take(1).collect::<String>(), 3);
+        let dd = dd_to_int(&grid4.chars().take(1).collect::<String>());
         let irpt = (35 + dd) as u16;
         (MAXGRID4 + irpt) | 0x8000 // ir = 1
     } else {
-        let dd = dd_to_int(grid4, 3);
+        let dd = dd_to_int(grid4);
         let irpt = (35 + dd) as u16;
         MAXGRID4 + irpt // ir = 0
     }
@@ -156,7 +137,7 @@ pub fn packgrid(grid4: &str) -> u16 {
 }
 
 // Pack Type 1 (Standard 77-bit message) and Type 2 (ditto, with a "/P" call)
-pub fn pack77_1(msg: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
+pub fn pack77_1(msg: &str, b77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
     // Locate the first delimiter
     let token: Vec<&str> = msg.split(' ').collect();
     let n28a = pack28(token[0]);
@@ -198,7 +179,7 @@ pub fn pack77_1(msg: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
     0
 }
 
-pub fn packtext77(text: &String, b77: &mut [u8; FTX_LDPC_K_BYTES]) {
+pub fn packtext77(text: &str, b77: &mut [u8; FTX_LDPC_K_BYTES]) {
     let text = text.trim();
 
     // Clear the first 72 bits representing a long number

@@ -3,7 +3,6 @@ use crate::spectrogram::*;
 use plotters::prelude::*;
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
-use std::collections::binary_heap;
 use std::sync::Arc;
 
 pub struct Config {
@@ -82,8 +81,7 @@ fn wfunc(i: usize, n: usize) -> f32 {
 // FFT窓関数：ハン窓
 #[cfg(feature = "window_hann")]
 fn wfunc(i: usize, n: usize) -> f32 {
-    let x = (std::f32::consts::PI * i as f32 / n as f32).sin().powi(2);
-    x
+    (std::f32::consts::PI * i as f32 / n as f32).sin().powi(2)
 }
 
 // FFT窓関数：ハミング窓
@@ -92,8 +90,8 @@ fn wfunc(i: usize, n: usize) -> f32 {
     let a0 = 0.54;
     let a1 = 0.46;
     let pi2 = 2.0 * std::f32::consts::PI;
-    let x = a0 - a1 * (pi2 * i as f32 / n as f32).cos();
-    x
+    
+    a0 - a1 * (pi2 * i as f32 / n as f32).cos()
 }
 
 // FFT窓関数：ブラックマン窓
@@ -104,8 +102,8 @@ fn wfunc(i: usize, n: usize) -> f32 {
     let a2 = 0.08;
     let pi2 = 2.0 * std::f32::consts::PI;
     let x = i as f32 / n as f32;
-    let w = a0 - a1 * (pi2 * x).cos() + a2 * (2.0 * pi2 * x).cos();
-    w
+    
+    a0 - a1 * (pi2 * x).cos() + a2 * (2.0 * pi2 * x).cos()
 }
 
 impl<'a> Monitor<'a> {
@@ -208,7 +206,7 @@ impl<'a> Monitor<'a> {
     }
 
     pub fn process_all(&mut self) {
-        //シンボルピリオド(0.16s = 1920 blotck size)毎にShort Time FFTを実行
+        //シンボルピリオド(0.16s = 1920 blotck size)毎にSTFT(Short Term FFT)を実行
         for frame in (0..self.samples.len() - self.block_size).step_by(self.block_size) {
             self.process(frame);
         }
