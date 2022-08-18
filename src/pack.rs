@@ -232,7 +232,7 @@ pub fn packtext77(text: &str, b77: &mut [u8; FTX_LDPC_K_BYTES]) {
     b77[9] &= 0x00;
 }
 
-pub fn pack77(msg: &String, c77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
+pub fn pack77(msg: &str, c77: &mut [u8; FTX_LDPC_K_BYTES]) -> i32 {
     // Check Type 1 (Standard 77-bit message) or Type 2, with optional "/P"
 
     if pack77_1(msg, c77) == 0 {

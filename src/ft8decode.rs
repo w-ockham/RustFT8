@@ -195,7 +195,7 @@ impl<'a> FT8Decode<'a> {
         for j in 0..8 {
             s2[j] = self.wf.mag[idx + FT8_GRAY_MAP[j]] as f32;
         }
-        //各bit毎の対数尤度LLR(Log Likelihood Ratio)を個別に求める　LLR = log(P(b=1)/P(b=0))
+        //各bit毎の対数尤度比LLR(Log Likelihood Ratio)をビット毎に求める　LLR = log(P(b=1)/P(b=0))
         //グレイコード上のMSBのLLRはtone4-7(1)の最大値からtone0-3(0)の最大値を引いたもの
         logl[bit_idx + 0] = max4(s2[4], s2[5], s2[6], s2[7]) - max4(s2[0], s2[1], s2[2], s2[3]);
         //同様に2bit目はtone2,3,6,7(1)の最大値からtone0,1,5,4(0)の最大値を引いたもの

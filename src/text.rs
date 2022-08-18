@@ -1,12 +1,14 @@
+use std::fmt::Write;
+
 pub fn dd_to_int(str: &str) -> i32 {
     str.parse().unwrap()
 }
 
 pub fn int_to_dd(mesg: &mut String, value: i32, full_sign: bool) {
     if full_sign {
-        mesg.push_str(&format!("{:+2}",value).to_string());
+        let _ =write!(mesg, "{:+2}", value);
     } else {
-        mesg.push_str(&format!("{:2}",value).to_string());
+        let _ = write!(mesg, "{:2}", value);
     }
 }
 
