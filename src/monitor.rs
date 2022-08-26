@@ -1,6 +1,5 @@
 use crate::constant::{FT8_SLOT_TIME, FT8_SYMBOL_PERIOD};
 use crate::spectrogram::*;
-use plotters::prelude::*;
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 use std::sync::Arc;
@@ -230,13 +229,13 @@ impl<'a> Monitor<'a> {
                 spectr.push(self.wf.mag[x + x_axis / 2 + y * x_axis]);
             }
         }
-        let root = BitMapBackend::new(path, (x_axis as u32, y_axis as u32)).into_drawing_area();
-        plot_spectrogram(&spectr, x_axis, y_axis, &root);
+       
+        plot_spectrogram(path ,&spectr, x_axis, y_axis);
     }
 
     pub fn decode_frequencies(&self, num_of_threads: usize) -> Vec<(usize, usize)> {
         let mut sched = Vec::new();
-        if cfg!(feature = "spawn_dynamic") {
+        if cfg!(feature = "auto_freq_seg") {
             let mut c = Candidate {
                 score: 0,
                 time_offset: 12,

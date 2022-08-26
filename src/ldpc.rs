@@ -2,6 +2,7 @@ use crate::constant::*;
 
 // Sum Productアルゴリズムで使われる
 // tanh/atanhを高速化するための近似
+#[cfg(feature = "ldpc_bp")]
 fn fast_tanh(x: f32) -> f32 {
     if cfg!(feature = "use_f32tan") {
         x.tanh()
@@ -19,6 +20,7 @@ fn fast_tanh(x: f32) -> f32 {
     }
 }
 
+#[cfg(feature = "ldpc_bp")]
 fn fast_atanh(x: f32) -> f32 {
     if cfg!(feature = "use_f32tan") {
         x.atan()
@@ -61,7 +63,7 @@ pub fn ldpc_decode(
     max_iters: i32,
     plain: &mut [u8; FTX_LDPC_N],
 ) -> usize {
-    //外部メッセージEを初期化
+    //検査メッセージEを初期化
     let mut tov = [[0.0f32; 7]; FTX_LDPC_N];
     //ビットメッセージを初期化
     let mut toc = [[0.0f32; 7]; FTX_LDPC_M];
@@ -73,8 +75,8 @@ pub fn ldpc_decode(
         let mut plain_sum: u8 = 0;
         //(1) テスト
         for n in 0..FTX_LDPC_N {
-            //対数尤度で示されたcodewardの各ビットを外部メッセージEで更新
-            //(codewardの1ビットについて3つのチェックノードからの外部メッセージが来る)
+            //対数尤度で示されたcodewardの各ビットを検査メッセージEで更新
+            //(codewardの1ビットについて3つのチェックノードからの検査メッセージが来る)
             //対数尤度 Log(P(c=1)/P(c=0))で判定しているのでP(c=1)>P(c=0)なら'1'
             //P(c=1)<P(c=0)なら'0'と判定しplain[n]へ格納
             plain[n] = if (codeward[n] + tov[n][0] + tov[n][1] + tov[n][2]) > 0.0f32 {
@@ -109,7 +111,7 @@ pub fn ldpc_decode(
                     let n = n - 1;
                     //受信したcodeward[n](ビット位置n)の値を初期値とし
                     let mut tnm = codeward[n];
-                    //ビットノードnの外部メッセージE(Extrinsic Message)との和をとる（ただしノードmから来たメッセージは除く）
+                    //ビットノードnの検査メッセージEとの和をとる（ただしノードmから来たメッセージは除く）
                     for m_idx in 0..3 {
                         if (FTX_LDPC_MN[n][m_idx] - 1) != m {
                             tnm += tov[n][m_idx];
@@ -120,8 +122,8 @@ pub fn ldpc_decode(
                 }
             }
         }
-        //(3)外部メッセージの更新
-        //各ビットノードnに接続する検査ノードmからの外部メッセージEを更新する
+        //(3)検査メッセージの更新
+        //各ビットノードnに接続する検査ノードmからの検査メッセージEを更新する
         //各ビットノードnが検査ノードからみて0/1の何れかの確率が高いか対数尤度で求める
         for n in 0..FTX_LDPC_N {
             for m_idx in 0..3 {
@@ -134,7 +136,7 @@ pub fn ldpc_decode(
                         tmn *= toc[m][n_idx];
                     }
                 }
-                // 外部メッセージ E = -2 + atan(Π tanh(-M/2))
+                // 検査メッセージ E = -2 + atan(Π tanh(-M/2))
                 tov[n][m_idx] = -2.0f32 * fast_atanh(tmn);
             }
         }
@@ -151,7 +153,7 @@ pub fn ldpc_decode(
     max_iters: i32,
     plain: &mut [u8; FTX_LDPC_N],
 ) -> usize {
-    /// 軟判定(log (P(x=1) / P(x=0)))を硬判定(0/1)に変換
+    // 軟判定(log (P(x=1) / P(x=0)))を硬判定(0/1)に変換
     plain.copy_from_slice(&codeward.map(|x| if x >= 0.0 { 1u8 } else { 0 }));
 
     for _ in 0..max_iters {
@@ -188,10 +190,10 @@ pub fn ldpc_decode(
             }
         }
         //　検査行列を満たすかチェック
-        if ldpc_check(&plain) == 0 {
+        if ldpc_check(plain) == 0 {
             return 0;
         }
     }
     //所定の繰り返しで終わらなければエラー
-    return 1;
+    1
 }

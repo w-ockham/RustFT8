@@ -1,4 +1,5 @@
 use crate::constant::FT8_NN;
+use crate::spectrogram::*;
 
 pub const FT8_SYMBOL_BT: f32 = 2.0f32;
 ///< symbol smoothing filter bandwidth factor (BT
@@ -13,8 +14,11 @@ const PI: f32 = std::f32::consts::PI;
 /// @param[in] b Shape parameter (values defined for FT8/FT4)
 /// @param[out] pulse Output array of pulse samples
 ///
-pub fn gfsk_pulse(n_spsym: usize, symbol_bt: f32, pulse: &mut [f32]) {
+pub fn gfsk_pulse(n_spsym: usize, mut symbol_bt: f32, pulse: &mut [f32]) {
     // BT積2で誤差関数をシンボル長の３倍の長さで生成する
+    if cfg!(feature = "disable_gfsk") {
+        symbol_bt = 99.0;
+    }
     for (i, p) in pulse.iter_mut().enumerate().take(3 * n_spsym) {
         let t = i as f32 / n_spsym as f32 - 1.5;
         let arg1 = GFSK_CONST_K * symbol_bt * (t + 0.5);
@@ -50,7 +54,7 @@ pub fn synth_gfsk(
     // Length = (nsym+2)*n_spsym samples, first and last symbols extended
     let dphi_peak = 2.0 * PI * hmod / n_spsym as f32;
     let mut dphi = Vec::new();
-    
+
     // Shift frequency up by f0
     for _ in 0..(n_wave + 2 * n_spsym) {
         dphi.push(2.0 * PI * f0 / signal_rate);
@@ -60,12 +64,24 @@ pub fn synth_gfsk(
 
     gfsk_pulse(n_spsym, symbol_bt, &mut pulse);
 
-    for (i , sym)  in symbols.iter().enumerate().take(n_sym) {
+    plot_graph(
+        "./gauss-envelope.png",
+        "GFSK Phase Envelope",
+        &pulse,
+        0,
+        pulse.len(),
+        0.0,
+        1.0,
+    );
+
+    for (i, sym) in symbols.iter().enumerate().take(n_sym) {
         let ib = i * n_spsym;
         for j in 0..3 * n_spsym {
             dphi[j + ib] += dphi_peak * (*sym as f32) * pulse[j];
         }
     }
+
+    plot_graph("./tones.png", "GFSK Tones", &dphi, 0, 16000, 0.625, 0.65);
 
     // Add dummy symbols at beginning and end with tone values equal to 1st and last symbol, respectively
     for j in 0..(2 * n_spsym) {
@@ -82,11 +98,13 @@ pub fn synth_gfsk(
     }
 
     // Apply envelope shaping to the first and last symbols
-    let n_ramp = n_spsym / 8;
-    for i in 0..n_ramp {
-        let env =
-            (1.0 - (2.0 * PI * i as f32 / (2.0 * n_ramp as f32)).cos()) / 2.0;
-        signal[i] *= env;
-        signal[n_wave - 1 - i] *= env;
+    if cfg!(not(feature = "disable_gfsk_ramp")) {
+        let n_ramp = n_spsym / 8;
+        for i in 0..n_ramp {
+            let env = (1.0 - (2.0 * PI * i as f32 / (2.0 * n_ramp as f32)).cos()) / 2.0;
+            signal[i] *= env;
+            signal[n_wave - 1 - i] *= env;
+        }
     }
+    plot_graph("./signal.png", "GFSK Signal", signal, 0, 500, -1.5, 1.5);
 }

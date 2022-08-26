@@ -71,11 +71,13 @@ fn main() {
 
         let mut file_out = File::create("./resampled.wav").unwrap();
         writer::to_file(&mut file_out, &WavData::new(header, samples.clone())).unwrap();
-    } else if args.len() == 3 {
+    } else if args.len() > 2 {
         // Generate FT8 symbols and GFSK modulated samples.
         let frequency = args[1].parse::<f32>().unwrap();
+		let attn = args[2].parse::<f32>().unwrap();
+		let attn = 10.0_f32.powf(attn/20.0);
 
-        if pack77(&args[2], &mut packed) < 0 {
+        if pack77(&args[3], &mut packed) < 0 {
             println!("Cannot parse message! {}", &args[1]);
             return;
         }
@@ -111,12 +113,12 @@ fn main() {
         silence_before.append(&mut silence_after);
         samples = silence_before;
 
-        samples = samples.iter().map(|x| *x / 1.0 /* 232044.0 */).collect::<Vec<_>>();
+        samples = samples.iter().map(|x| * x * attn).collect::<Vec<_>>();
 
         header.sample_rate = config.sample_rate;
         header.channels = 1;
-        header.bits_per_sample = 16;
-        header.sample_format = SampleFormat::Int;
+        header.bits_per_sample = 32;
+        header.sample_format = SampleFormat::Float;
 
         let mut file_out = File::create("./resampled.wav").unwrap();
         writer::to_file(&mut file_out, &WavData::new(header, samples.clone())).unwrap();

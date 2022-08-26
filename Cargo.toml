@@ -4,11 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default =["ldpc_bp", "window_blackman"]
+default =["ldpc_bp","window_blackman"]
+disable_gfsk_ramp = []
+disable_gfsk = []
 ldpc_bp = []
 ldpc_bitflip =[]
 use_f32tan = []
-spawn_dynamic = []
+auto_freq_seg = []
 window_rect = []
 window_hann = []
 window_hamming = []
